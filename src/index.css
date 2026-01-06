@@ -1,0 +1,222 @@
+/* Sistema de Cobros - Estilos Globales Responsivos */
+:root {
+  font-family: 'Google Sans', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light;
+  color: #263238;
+  background-color: #F8F9FA;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  
+  /* Variables CSS para responsive */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* Tamaños de fuente responsive */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+}
+
+/* Reset y base */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* Tipografía responsive */
+h1 {
+  font-size: clamp(1.5rem, 5vw, 2.5rem);
+  line-height: 1.2;
+  margin: 0;
+}
+
+h2 {
+  font-size: clamp(1.25rem, 4vw, 2rem);
+  line-height: 1.3;
+  margin: 0;
+}
+
+h3, h4, h5, h6 {
+  line-height: 1.4;
+  margin: 0;
+}
+
+p {
+  margin: 0 0 1em;
+}
+
+a {
+  font-weight: 500;
+  color: #00C853;
+  text-decoration: inherit;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #00A344;
+}
+
+/* Mejoras para inputs en móvil */
+input, textarea, select, button {
+  font-size: 16px; /* Previene zoom en iOS */
+}
+
+/* Tablas responsive */
+.MuiTableContainer-root {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mejoras para scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Evitar selección accidental en móvil */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Animaciones suaves */
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Mejoras para dispositivos táctiles */
+@media (hover: none) and (pointer: coarse) {
+  button, a, .MuiIconButton-root {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Media queries para breakpoints principales */
+@media (max-width: 600px) {
+  :root {
+    --font-size-base: 0.9375rem;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+  }
+  
+  .MuiTypography-h4 {
+    font-size: 1.25rem !important;
+  }
+  
+  .MuiTypography-h5 {
+    font-size: 1.1rem !important;
+  }
+  
+  .MuiTypography-h6 {
+    font-size: 1rem !important;
+  }
+  
+  /* Mejora de padding en Cards en móvil */
+  .MuiCardContent-root {
+    padding: 12px !important;
+  }
+  
+  .MuiCardContent-root:last-child {
+    padding-bottom: 12px !important;
+  }
+  
+  /* Botones más compactos en móvil */
+  .MuiButton-root {
+    padding: 8px 16px !important;
+    font-size: 0.875rem !important;
+  }
+  
+  /* Tablas más compactas */
+  .MuiTableCell-root {
+    padding: 8px 6px !important;
+    font-size: 0.8125rem !important;
+  }
+  
+  /* Diálogos fullscreen en móvil */
+  .MuiDialog-paper {
+    margin: 16px !important;
+    max-height: calc(100% - 32px) !important;
+    width: calc(100% - 32px) !important;
+  }
+}
+
+@media (max-width: 400px) {
+  .MuiTableCell-root {
+    padding: 6px 4px !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .MuiChip-root {
+    font-size: 0.7rem !important;
+    height: 24px !important;
+  }
+}
+
+/* Impresión */
+@media print {
+  body {
+    background-color: white;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Safe area para dispositivos con notch */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
