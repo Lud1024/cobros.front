@@ -5,6 +5,7 @@ import { SnackbarProvider } from 'notistack';
 import { AuthProvider } from './contexts/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import PublicRoute from './components/PublicRoute';
+import TokenInvalidDialog from './components/TokenInvalidDialog';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -44,6 +45,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <TokenInvalidDialog />
       <SnackbarProvider
         maxSnack={3}
         anchorOrigin={{

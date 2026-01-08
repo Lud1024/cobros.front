@@ -65,16 +65,15 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       
-      // Mostrar mensaje antes de redirigir
-      const mensaje = status === 401 
-        ? 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.'
-        : 'Sesión inválida. Debes iniciar sesión nuevamente.';
+      // Emitir evento personalizado para mostrar dialog de Material-UI
+      const mensaje = 'TOKEN INVALIDO';
+      window.dispatchEvent(new CustomEvent('token-invalid', { detail: { mensaje } }));
       
-      // Usar alert nativo para asegurar que se muestre antes de redirigir
-      alert(mensaje);
+      // Esperar un momento para que se muestre el dialog antes de redirigir
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
       
-      // Redirigir al login
-      window.location.href = '/';
       error.userMessage = mensaje;
     } else if (status === 404) {
       error.userMessage = 'El recurso solicitado no existe.';
