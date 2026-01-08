@@ -128,6 +128,41 @@ export const AuthProvider = ({ children }) => {
     setShowWarning(false);
   };
 
+  // Verificar si el usuario tiene un permiso específico
+  const hasPermission = (permiso) => {
+    if (!user || !user.permisos) return false;
+    return user.permisos[permiso] === true;
+  };
+
+  // Verificar si el usuario tiene alguno de los permisos (OR)
+  const hasAnyPermission = (permisos) => {
+    if (!user || !user.permisos) return false;
+    return permisos.some(p => user.permisos[p] === true);
+  };
+
+  // Verificar si el usuario tiene todos los permisos (AND)
+  const hasAllPermissions = (permisos) => {
+    if (!user || !user.permisos) return false;
+    return permisos.every(p => user.permisos[p] === true);
+  };
+
+  // Verificar si el usuario tiene acceso a una cartera
+  const hasCarteraAccess = (idCartera) => {
+    if (!user || !user.carteras) return false;
+    return user.carteras.includes(idCartera);
+  };
+
+  // Verificar si el usuario tiene un rol específico
+  const hasRole = (nombreRol) => {
+    if (!user || !user.roles) return false;
+    return user.roles.some(r => r.nombre_rol.toLowerCase() === nombreRol.toLowerCase());
+  };
+
+  // Obtener las carteras a las que el usuario tiene acceso
+  const getUserCarteras = () => {
+    return user?.rolesPorCartera || [];
+  };
+
   const value = {
     user,
     login,
@@ -136,6 +171,17 @@ export const AuthProvider = ({ children }) => {
     // derive isAuthenticated from current user state so it's reactive
     isAuthenticated: !!user,
     loading,
+    // Funciones de permisos y roles
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions,
+    hasCarteraAccess,
+    hasRole,
+    getUserCarteras,
+    // Acceso directo a roles y permisos
+    roles: user?.roles || [],
+    permisos: user?.permisos || {},
+    carteras: user?.carteras || [],
   };
 
   return (

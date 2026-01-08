@@ -20,3 +20,5 @@ export { StatusAlert, Toast, InlineMessage, ConnectionStatus, FormErrors } from 
 
 // Estadísticas y métricas
 export { StatCard, StatCardGrid, MiniStat, ProgressStat } from './Stats';
+// Control de acceso basado en roles y permisos
+export { PermissionGate, RoleGate, CarteraGate } from './PermissionGate';

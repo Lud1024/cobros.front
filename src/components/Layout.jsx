@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -24,6 +24,7 @@ import {
   SwipeableDrawer,
   Fab,
   Zoom,
+  Chip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -60,35 +61,35 @@ import { useAuth } from '../contexts/AuthContext';
 const drawerWidth = 260;
 const drawerWidthCollapsed = 72;
 
+// Definición de items del menú con permisos por módulo
 const menuItems = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/app/dashboard' },
   { divider: true, label: 'CLIENTES' },
-  { text: 'Clientes', icon: <People />, path: '/app/clientes' },
-  { text: 'Documentos', icon: <Description />, path: '/app/cliente-documentos' },
+  { text: 'Clientes', icon: <People />, path: '/app/clientes', permission: 'clientes' },
+  { text: 'Documentos', icon: <Description />, path: '/app/cliente-documentos', permission: 'clientes' },
   { divider: true, label: 'PRÉSTAMOS' },
-  { text: 'Préstamos', icon: <AccountBalance />, path: '/app/prestamos' },
-  { text: 'Garantías', icon: <Security />, path: '/app/prestamo-garantia' },
-  { text: 'Verificaciones', icon: <CheckCircle />, path: '/app/verificaciones-prestamo' },
-  { text: 'Rechazos', icon: <Cancel />, path: '/app/rechazos-historial' },
+  { text: 'Préstamos', icon: <AccountBalance />, path: '/app/prestamos', permission: 'prestamos' },
+  { text: 'Garantías', icon: <Security />, path: '/app/prestamo-garantia', permission: 'prestamos' },
+  { text: 'Verificaciones', icon: <CheckCircle />, path: '/app/verificaciones-prestamo', permission: 'prestamos' },
+  { text: 'Rechazos', icon: <Cancel />, path: '/app/rechazos-historial', permission: 'prestamos' },
   { divider: true, label: 'PAGOS Y CUOTAS' },
-  { text: 'Pagos', icon: <Payment />, path: '/app/pagos' },
-  { text: 'Aplicación Pagos', icon: <TrendingUp />, path: '/app/pago-aplicaciones' },
-  { text: 'Cuotas', icon: <Schedule />, path: '/app/cuotas' },
+  { text: 'Pagos', icon: <Payment />, path: '/app/pagos', permission: 'pagos' },
+  { text: 'Aplicación Pagos', icon: <TrendingUp />, path: '/app/pago-aplicaciones', permission: 'pagos' },
+  { text: 'Cuotas', icon: <Schedule />, path: '/app/cuotas', permission: 'pagos' },
   { divider: true, label: 'MORA Y COBRO' },
-  { text: 'Eventos de Mora', icon: <Warning />, path: '/app/mora-eventos' },
-  { text: 'Políticas de Mora', icon: <Policy />, path: '/app/politicas-mora' },
-  { text: 'Visitas de Cobro', icon: <Assignment />, path: '/app/visitas-cobro' },
+  { text: 'Eventos de Mora', icon: <Warning />, path: '/app/mora-eventos', permission: 'mora' },
+  { text: 'Políticas de Mora', icon: <Policy />, path: '/app/politicas-mora', permission: 'mora' },
+  { text: 'Visitas de Cobro', icon: <Assignment />, path: '/app/visitas-cobro', permission: 'mora' },
   { divider: true, label: 'CONFIGURACIÓN' },
-  { text: 'Carteras', icon: <Folder />, path: '/app/carteras' },
-  { text: 'Métodos Garantía', icon: <VerifiedUser />, path: '/app/metodos-garantia' },
-  { text: 'Periodicidades', icon: <Schedule />, path: '/app/periodicidades' },
+  { text: 'Carteras', icon: <Folder />, path: '/app/carteras', permission: 'configuracion' },
+  { text: 'Métodos Garantía', icon: <VerifiedUser />, path: '/app/metodos-garantia', permission: 'configuracion' },
+  { text: 'Periodicidades', icon: <Schedule />, path: '/app/periodicidades', permission: 'configuracion' },
   { divider: true, label: 'USUARIOS Y ROLES' },
-  { text: 'Usuarios', icon: <PersonOutline />, path: '/app/usuarios' },
-  { text: 'Roles', icon: <SupervisedUserCircle />, path: '/app/roles' },
-  { text: 'Rol-Cartera', icon: <Link />, path: '/app/rol-cartera' },
-  { text: 'Usuario-Roles', icon: <Link />, path: '/app/usuario-roles' },
+  { text: 'Usuarios', icon: <PersonOutline />, path: '/app/usuarios', permission: 'usuarios' },
+  { text: 'Roles', icon: <SupervisedUserCircle />, path: '/app/roles', permission: 'usuarios' },
+  { text: 'Usuario-Roles', icon: <Link />, path: '/app/usuario-roles', permission: 'usuarios' },
   { divider: true },
-  { text: 'Reportes', icon: <Assessment />, path: '/app/reportes' },
+  { text: 'Reportes', icon: <Assessment />, path: '/app/reportes', permission: 'reportes' },
   { text: 'Configuración', icon: <Settings />, path: '/app/configuracion' },
 ];
 
@@ -129,7 +130,36 @@ const Layout = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission, roles } = useAuth();
+
+  // Filtrar items del menú según permisos del usuario
+  const filteredMenuItems = useMemo(() => {
+    return menuItems.filter(item => {
+      // Siempre mostrar dividers y items sin permiso requerido
+      if (item.divider || !item.permission) return true;
+      // Verificar si tiene el permiso
+      return hasPermission(item.permission);
+    }).filter((item, index, arr) => {
+      // Eliminar dividers consecutivos o al final
+      if (item.divider) {
+        const nextItem = arr[index + 1];
+        if (!nextItem || nextItem.divider) return false;
+      }
+      return true;
+    });
+  }, [hasPermission]);
+
+  // Obtener el rol principal del usuario
+  const rolPrincipal = useMemo(() => {
+    if (!roles || roles.length === 0) return null;
+    // Prioridad: Administrador > Supervisor > Analista > Cobrador > Consulta
+    const prioridad = ['Administrador', 'Supervisor', 'Analista', 'Cobrador', 'Consulta'];
+    for (const rol of prioridad) {
+      const encontrado = roles.find(r => r.nombre_rol === rol);
+      if (encontrado) return encontrado;
+    }
+    return roles[0];
+  }, [roles]);
 
   // Cerrar drawer al cambiar de tamaño de pantalla
   useEffect(() => {
@@ -205,7 +235,7 @@ const Layout = () => {
       <Divider />
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         <List sx={{ py: 0 }}>
-          {menuItems.map((item, index) =>
+          {filteredMenuItems.map((item, index) =>
             item.divider ? (
               <Box key={`divider-${index}`}>
                 <Divider sx={{ my: 0.5 }} />
@@ -283,13 +313,28 @@ const Layout = () => {
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '0.875rem' }}>
               {user?.nombre?.charAt(0)}
             </Avatar>
-            <Box sx={{ overflow: 'hidden' }}>
+            <Box sx={{ overflow: 'hidden', flex: 1 }}>
               <Typography variant="body2" fontWeight="medium" noWrap>
                 {user?.nombre} {user?.apellido}
               </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>
-                {user?.usuario}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="caption" color="text.secondary" noWrap>
+                  {user?.usuario}
+                </Typography>
+                {rolPrincipal && (
+                  <Chip 
+                    label={rolPrincipal.nombre_rol} 
+                    size="small" 
+                    color={
+                      rolPrincipal.nombre_rol === 'Administrador' ? 'error' :
+                      rolPrincipal.nombre_rol === 'Supervisor' ? 'warning' :
+                      rolPrincipal.nombre_rol === 'Analista' ? 'info' :
+                      rolPrincipal.nombre_rol === 'Cobrador' ? 'success' : 'default'
+                    }
+                    sx={{ height: 18, fontSize: '0.65rem' }}
+                  />
+                )}
+              </Box>
             </Box>
           </Box>
         </Box>
@@ -370,22 +415,40 @@ const Layout = () => {
             PaperProps={{
               sx: {
                 mt: 1,
-                minWidth: 180,
+                minWidth: 200,
                 '& .MuiMenuItem-root': {
                   py: 1.5,
                 },
               },
             }}
           >
-            <Box sx={{ px: 2, py: 1, display: { sm: 'none' } }}>
+            <Box sx={{ px: 2, py: 1.5 }}>
               <Typography variant="body2" fontWeight="medium">
                 {user?.nombre} {user?.apellido}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" display="block">
                 {user?.usuario}
               </Typography>
+              {rolPrincipal && (
+                <Chip 
+                  label={rolPrincipal.nombre_rol} 
+                  size="small" 
+                  color={
+                    rolPrincipal.nombre_rol === 'Administrador' ? 'error' :
+                    rolPrincipal.nombre_rol === 'Supervisor' ? 'warning' :
+                    rolPrincipal.nombre_rol === 'Analista' ? 'info' :
+                    rolPrincipal.nombre_rol === 'Cobrador' ? 'success' : 'default'
+                  }
+                  sx={{ mt: 1, height: 20, fontSize: '0.7rem' }}
+                />
+              )}
+              {roles.length > 1 && (
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                  +{roles.length - 1} rol(es) más
+                </Typography>
+              )}
             </Box>
-            <Divider sx={{ display: { sm: 'none' }, my: 1 }} />
+            <Divider sx={{ my: 1 }} />
             <MenuItem onClick={() => { handleMenuClose(); navigate('/app/perfil'); }}>
               <ListItemIcon>
                 <AccountCircle fontSize="small" />

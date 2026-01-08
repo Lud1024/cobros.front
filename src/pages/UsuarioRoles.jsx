@@ -42,7 +42,7 @@ import { usuarioRolesService, usuariosService, rolesService, carterasService } f
 const validationSchema = Yup.object({
   id_usuario: Yup.number().required('El usuario es requerido'),
   id_rol: Yup.number().required('El rol es requerido'),
-  id_cartera: Yup.number().required('La cartera es requerida'),
+  id_cartera: Yup.number().nullable().notRequired(),
 });
 
 function UsuarioRoles() {
@@ -132,6 +132,7 @@ function UsuarioRoles() {
   };
 
   const getCarteraNombre = (idCartera) => {
+    if (!idCartera) return 'Sin cartera asignada';
     const cartera = carteras.find((c) => c.id_cartera === idCartera);
     return cartera ? cartera.nombre : '-';
   };
@@ -393,7 +394,7 @@ function UsuarioRoles() {
           initialValues={{
             id_usuario: '',
             id_rol: '',
-            id_cartera: '',
+            id_cartera: null,
           }}
           validationSchema={validationSchema}
           onSubmit={handleSubmit}
@@ -438,14 +439,13 @@ function UsuarioRoles() {
                     options={carteras}
                     getOptionLabel={(option) => `${option.nombre} - ${option.descripcion}`}
                     value={carteras.find((c) => c.id_cartera === values.id_cartera) || null}
-                    onChange={(e, newValue) => setFieldValue('id_cartera', newValue ? newValue.id_cartera : '')}
+                    onChange={(e, newValue) => setFieldValue('id_cartera', newValue ? newValue.id_cartera : null)}
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Cartera"
-                        required
+                        label="Cartera (Opcional)"
                         error={touched.id_cartera && Boolean(errors.id_cartera)}
-                        helperText={touched.id_cartera && errors.id_cartera}
+                        helperText={touched.id_cartera ? errors.id_cartera : 'Deja vacío si el usuario no necesita cartera asignada'}
                       />
                     )}
                   />

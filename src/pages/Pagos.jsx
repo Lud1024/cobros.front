@@ -215,7 +215,7 @@ const Pagos = () => {
         <title>Recibo de Pago #${pago.numero_recibo || pago.id_pago}</title>
         <style>
           @page {
-            size: 56mm auto;
+            size: 58mm auto;
             margin: 0;
           }
           * {
@@ -224,11 +224,11 @@ const Pagos = () => {
             box-sizing: border-box;
           }
           body {
-            width: 50mm;
+            width: 56mm;
             font-family: 'Arial Black', 'Arial Bold', Arial, sans-serif;
             font-size: 10pt;
             font-weight: 700;
-            padding: 2mm 4mm 2mm 2mm;
+            padding: 2mm 2mm 2mm 2mm;
             background: white;
             color: #000;
             -webkit-print-color-adjust: exact;

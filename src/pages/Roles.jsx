@@ -26,6 +26,9 @@ import {
   Chip,
   useMediaQuery,
   useTheme,
+  FormControlLabel,
+  Switch,
+  Divider,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -34,14 +37,80 @@ import {
   Search as SearchIcon,
   AdminPanelSettings as AdminIcon,
   Visibility as VisibilityIcon,
+  People as PeopleIcon,
+  AccountBalance as AccountBalanceIcon,
+  Payment as PaymentIcon,
+  Warning as WarningIcon,
+  Settings as SettingsIcon,
+  SupervisedUserCircle as UsersIcon,
+  Assessment as ReportsIcon,
 } from '@mui/icons-material';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { rolesService } from '../services/api';
 
+// Definición de módulos con sus permisos asociados
+const modulosPermisos = [
+  {
+    modulo: 'clientes',
+    label: 'Clientes',
+    descripcion: 'Gestión de clientes y sus documentos',
+    icon: <PeopleIcon />,
+    color: 'primary',
+    permisos: ['ver_clientes', 'crear_clientes', 'editar_clientes', 'eliminar_clientes', 'ver_documentos', 'gestionar_documentos']
+  },
+  {
+    modulo: 'prestamos',
+    label: 'Préstamos',
+    descripcion: 'Préstamos, garantías y verificaciones',
+    icon: <AccountBalanceIcon />,
+    color: 'secondary',
+    permisos: ['ver_prestamos', 'crear_prestamos', 'editar_prestamos', 'eliminar_prestamos', 'gestionar_garantias', 'verificar_prestamos', 'rechazar_prestamos']
+  },
+  {
+    modulo: 'pagos',
+    label: 'Pagos y Cuotas',
+    descripcion: 'Gestión de pagos, cuotas y aplicaciones',
+    icon: <PaymentIcon />,
+    color: 'success',
+    permisos: ['ver_pagos', 'crear_pagos', 'editar_pagos', 'eliminar_pagos', 'aplicar_pagos', 'ver_cuotas', 'gestionar_cuotas']
+  },
+  {
+    modulo: 'mora',
+    label: 'Mora y Cobro',
+    descripcion: 'Eventos de mora, políticas y visitas',
+    icon: <WarningIcon />,
+    color: 'warning',
+    permisos: ['ver_mora', 'gestionar_mora', 'ver_politicas', 'editar_politicas', 'ver_visitas', 'crear_visitas']
+  },
+  {
+    modulo: 'configuracion',
+    label: 'Configuración',
+    descripcion: 'Carteras, métodos de garantía y periodicidades',
+    icon: <SettingsIcon />,
+    color: 'info',
+    permisos: ['ver_carteras', 'gestionar_carteras', 'ver_metodos_garantia', 'gestionar_metodos_garantia', 'ver_periodicidades', 'gestionar_periodicidades']
+  },
+  {
+    modulo: 'usuarios',
+    label: 'Usuarios y Roles',
+    descripcion: 'Administración de usuarios y roles',
+    icon: <UsersIcon />,
+    color: 'error',
+    permisos: ['ver_usuarios', 'crear_usuarios', 'editar_usuarios', 'eliminar_usuarios', 'ver_roles', 'gestionar_roles', 'asignar_roles']
+  },
+  {
+    modulo: 'reportes',
+    label: 'Reportes',
+    descripcion: 'Generación y exportación de reportes',
+    icon: <ReportsIcon />,
+    color: 'default',
+    permisos: ['ver_reportes', 'generar_reportes', 'exportar_reportes']
+  },
+];
+
 const validationSchema = Yup.object({
   nombre_rol: Yup.string().required('El nombre del rol es requerido').max(100),
-  permisos: Yup.string().nullable(),
 });
 
 function Roles() {
@@ -57,20 +126,42 @@ function Roles() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailRol, setDetailRol] = useState(null);
+  const [permisos, setPermisos] = useState({});
 
   const renderPermisos = (perm) => {
     if (!perm && perm !== 0) return '-';
-    if (typeof perm === 'string') return perm;
-    if (typeof perm === 'object') {
+    let permObj = perm;
+    if (typeof perm === 'string') {
       try {
-        const keys = Object.entries(perm)
-          .filter(([k, v]) => v === true || v === 'true')
-          .map(([k]) => k);
-        if (keys.length) return keys.join(', ');
-        return JSON.stringify(perm);
+        permObj = JSON.parse(perm);
       } catch (e) {
-        return String(perm);
+        return perm;
       }
+    }
+    if (typeof permObj === 'object') {
+      // Buscar módulos activos
+      const modulosActivos = modulosPermisos
+        .filter(m => permObj[m.modulo] === true)
+        .map(m => m.label);
+      
+      if (modulosActivos.length > 0) {
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            {modulosActivos.map(label => (
+              <Chip key={label} label={label} size="small" variant="outlined" />
+            ))}
+          </Box>
+        );
+      }
+      
+      // Fallback para permisos antiguos
+      const keys = Object.entries(permObj)
+        .filter(([k, v]) => v === true || v === 'true')
+        .map(([k]) => k);
+      if (keys.length) {
+        return keys.length > 3 ? `${keys.slice(0, 3).join(', ')}...` : keys.join(', ');
+      }
+      return '-';
     }
     return String(perm);
   };
@@ -99,21 +190,62 @@ function Roles() {
 
   const handleOpenDialog = (rol = null) => {
     setSelectedRol(rol);
+    // Parsear permisos si existen
+    if (rol && rol.permisos) {
+      try {
+        const parsedPermisos = typeof rol.permisos === 'string' ? JSON.parse(rol.permisos) : rol.permisos;
+        setPermisos(parsedPermisos);
+      } catch (e) {
+        setPermisos({});
+      }
+    } else {
+      setPermisos({});
+    }
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setSelectedRol(null);
+    setPermisos({});
+  };
+
+  // Manejar cambio de módulo completo
+  const handleModuloChange = (modulo, checked) => {
+    const moduloInfo = modulosPermisos.find(m => m.modulo === modulo);
+    if (!moduloInfo) return;
+    
+    // Si se activa el módulo, se activan todos sus permisos
+    // Si se desactiva, se desactivan todos
+    const newPermisos = { ...permisos };
+    moduloInfo.permisos.forEach(permiso => {
+      newPermisos[permiso] = checked;
+    });
+    // También guardamos el estado del módulo
+    newPermisos[modulo] = checked;
+    setPermisos(newPermisos);
+  };
+
+  // Verificar si un módulo está activo (tiene el flag del módulo o todos sus permisos)
+  const isModuloActivo = (modulo) => {
+    const moduloInfo = modulosPermisos.find(m => m.modulo === modulo);
+    if (!moduloInfo) return false;
+    // Verificamos si el módulo está explícitamente activo
+    return Boolean(permisos[modulo]);
   };
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
+      const dataToSend = {
+        ...values,
+        permisos: JSON.stringify(permisos)
+      };
+      
       if (selectedRol) {
-        await rolesService.update(selectedRol.id_rol, values);
+        await rolesService.update(selectedRol.id_rol, dataToSend);
         showSnackbar('Rol actualizado exitosamente', 'success');
       } else {
-        await rolesService.create(values);
+        await rolesService.create(dataToSend);
         showSnackbar('Rol creado exitosamente', 'success');
       }
       handleCloseDialog();
@@ -304,16 +436,42 @@ function Roles() {
         <DialogTitle>Detalles del Rol</DialogTitle>
         <DialogContent dividers>
           {detailRol ? (
-            <Grid container spacing={1}>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2">Nombre del Rol</Typography>
-                <Typography variant="body2">{detailRol.nombre_rol}</Typography>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">Nombre del Rol</Typography>
+              <Typography variant="h6" sx={{ mb: 2 }}>{detailRol.nombre_rol}</Typography>
+              
+              <Divider sx={{ my: 2 }} />
+              
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Módulos con Acceso</Typography>
+              <Grid container spacing={1}>
+                {(() => {
+                  let permObj = detailRol.permisos;
+                  if (typeof permObj === 'string') {
+                    try { permObj = JSON.parse(permObj); } catch (e) { permObj = {}; }
+                  }
+                  return modulosPermisos.map(m => (
+                    <Grid item xs={6} key={m.modulo}>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        opacity: permObj?.[m.modulo] ? 1 : 0.4
+                      }}>
+                        <Box sx={{ color: permObj?.[m.modulo] ? `${m.color}.main` : 'action.disabled' }}>
+                          {m.icon}
+                        </Box>
+                        <Typography variant="body2">
+                          {m.label}
+                        </Typography>
+                        {permObj?.[m.modulo] && (
+                          <Chip label="✓" size="small" color="success" sx={{ ml: 'auto', minWidth: 24 }} />
+                        )}
+                      </Box>
+                    </Grid>
+                  ));
+                })()}
               </Grid>
-              <Grid item xs={12}>
-                <Typography variant="subtitle2">Permisos</Typography>
-                <Typography variant="body2">{renderPermisos(detailRol.permisos)}</Typography>
-              </Grid>
-            </Grid>
+            </Box>
           ) : (
             <Typography variant="body2">No hay detalles disponibles</Typography>
           )}
@@ -323,12 +481,11 @@ function Roles() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>{selectedRol ? 'Editar Rol' : 'Nuevo Rol'}</DialogTitle>
         <Formik
           initialValues={{
             nombre_rol: selectedRol?.nombre_rol || '',
-            permisos: selectedRol?.permisos || '',
           }}
           validationSchema={validationSchema}
           onSubmit={handleSubmit}
@@ -349,19 +506,51 @@ function Roles() {
                       />
                     )}
                   </Field>
-                  <Field name="permisos">
-                    {({ field }) => (
-                      <TextField
-                        {...field}
-                        label="Permisos (JSON)"
-                        fullWidth
-                        multiline
-                        rows={4}
-                        error={touched.permisos && Boolean(errors.permisos)}
-                        helperText={touched.permisos && errors.permisos}
-                      />
-                    )}
-                  </Field>
+
+                  <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
+                    Acceso por Módulos
+                  </Typography>
+
+                  <Grid container spacing={2}>
+                    {modulosPermisos.map((modulo) => (
+                      <Grid item xs={12} sm={6} key={modulo.modulo}>
+                        <Card 
+                          variant="outlined" 
+                          sx={{ 
+                            p: 2, 
+                            height: '100%',
+                            borderColor: isModuloActivo(modulo.modulo) ? `${modulo.color}.main` : 'divider',
+                            bgcolor: isModuloActivo(modulo.modulo) ? `${modulo.color}.50` : 'background.paper',
+                            transition: 'all 0.2s ease-in-out',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ 
+                                color: isModuloActivo(modulo.modulo) ? `${modulo.color}.main` : 'action.disabled',
+                                display: 'flex'
+                              }}>
+                                {modulo.icon}
+                              </Box>
+                              <Box>
+                                <Typography variant="subtitle2" fontWeight="bold">
+                                  {modulo.label}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {modulo.descripcion}
+                                </Typography>
+                              </Box>
+                            </Box>
+                            <Switch
+                              checked={isModuloActivo(modulo.modulo)}
+                              onChange={(e) => handleModuloChange(modulo.modulo, e.target.checked)}
+                              color={modulo.color === 'default' ? 'primary' : modulo.color}
+                            />
+                          </Box>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
                 </Box>
               </DialogContent>
               <DialogActions>

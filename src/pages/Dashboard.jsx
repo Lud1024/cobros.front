@@ -156,8 +156,8 @@ const Dashboard = () => {
         pagosService.getAll(),
       ]);
 
-      const totalMonto = prestamos.reduce((sum, p) => sum + parseFloat(p.monto_prestamo || 0), 0);
-      const totalPagosSum = pagos.reduce((sum, p) => sum + parseFloat(p.monto || 0), 0);
+      const totalMonto = prestamos.reduce((sum, p) => sum + parseFloat(p.monto || 0), 0);
+      const totalPagosSum = pagos.reduce((sum, p) => sum + parseFloat(p.monto_recibido || 0), 0);
 
       setStats({
         totalClientes: clientes.length,
