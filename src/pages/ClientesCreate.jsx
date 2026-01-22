@@ -20,6 +20,7 @@ const validationSchema = Yup.object({
   apellido: Yup.string().required('Apellido es requerido'),
   dpi: Yup.string().required('DPI es requerido'),
   nit: Yup.string().nullable(),
+  direccion: Yup.string().required('Dirección es requerida'),
   telefono: Yup.string().nullable(),
   correo: Yup.string().email('Correo inválido').nullable(),
   id_cartera: Yup.number().required('Cartera es requerida'),
@@ -48,6 +49,7 @@ const ClientesCreate = () => {
       apellido: '',
       dpi: '',
       nit: '',
+      direccion: '',
       telefono: '',
       correo: '',
       id_cartera: '',
@@ -76,6 +78,15 @@ const ClientesCreate = () => {
             <TextField label="Apellido" name="apellido" value={formik.values.apellido} onChange={formik.handleChange} error={formik.touched.apellido && Boolean(formik.errors.apellido)} helperText={formik.touched.apellido && formik.errors.apellido} />
             <TextField label="DPI" name="dpi" value={formik.values.dpi} onChange={formik.handleChange} error={formik.touched.dpi && Boolean(formik.errors.dpi)} helperText={formik.touched.dpi && formik.errors.dpi} />
             <TextField label="NIT" name="nit" value={formik.values.nit} onChange={formik.handleChange} />
+            <TextField 
+              label="Dirección" 
+              name="direccion" 
+              value={formik.values.direccion} 
+              onChange={formik.handleChange} 
+              error={formik.touched.direccion && Boolean(formik.errors.direccion)} 
+              helperText={formik.touched.direccion && formik.errors.direccion}
+              sx={{ gridColumn: '1 / -1' }}
+            />
             <TextField label="Teléfono" name="telefono" value={formik.values.telefono} onChange={formik.handleChange} />
             <TextField label="Correo" name="correo" value={formik.values.correo} onChange={formik.handleChange} error={formik.touched.correo && Boolean(formik.errors.correo)} helperText={formik.touched.correo && formik.errors.correo} />
             <Autocomplete

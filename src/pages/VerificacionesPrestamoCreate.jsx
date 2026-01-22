@@ -14,32 +14,42 @@ import {
 } from '@mui/material';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { verificacionesPrestamoService, clientesService } from '../services/api';
+import { verificacionesPrestamoService, clientesService, usuariosService } from '../services/api';
 import { useSnackbar } from 'notistack';
 import { formatCurrency } from '../utils/formatters';
 
-const estadosVerificacion = ['Pendiente', 'En Proceso', 'Aprobado', 'Rechazado'];
+// Estados según ENUM de la BD: 'en_proceso', 'aprobado', 'rechazado'
+const estadosVerificacion = [
+  { value: 'en_proceso', label: 'En Proceso' },
+  { value: 'aprobado', label: 'Aprobado' },
+  { value: 'rechazado', label: 'Rechazado' },
+];
 
 const validationSchema = Yup.object({
   id_cliente: Yup.number().required('El cliente es requerido'),
   fecha_solicitud: Yup.date().required('La fecha es requerida'),
   monto_solicitado: Yup.number().required('El monto es requerido').min(0),
   estado: Yup.string().required('El estado es requerido'),
-  analista: Yup.string().required('El analista es requerido').max(100),
+  analista: Yup.number().required('El analista es requerido'),
 });
 
 const VerificacionesPrestamoCreate = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const [clientes, setClientes] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await clientesService.getAll();
-        setClientes(data);
+        const [clientesData, usuariosData] = await Promise.all([
+          clientesService.getAll(),
+          usuariosService.getAll(),
+        ]);
+        setClientes(clientesData);
+        setUsuarios(usuariosData);
       } catch (e) {
-        console.error('Error loading clientes for verificaciones', e);
+        console.error('Error loading data for verificaciones', e);
       }
     };
     load();
@@ -63,7 +73,7 @@ const VerificacionesPrestamoCreate = () => {
       <Card>
         <CardContent>
           <Formik
-            initialValues={{ id_cliente: '', fecha_solicitud: '', monto_solicitado: '', estado: 'Pendiente', analista: '', comentarios: '' }}
+            initialValues={{ id_cliente: '', fecha_solicitud: '', monto_solicitado: '', estado: 'en_proceso', analista: '', comentarios: '' }}
             validationSchema={validationSchema}
             onSubmit={handleSubmit}
           >
@@ -100,16 +110,20 @@ const VerificacionesPrestamoCreate = () => {
 
                   <Grid item xs={12} sm={6}>
                     <TextField select label="Estado" fullWidth value={values.estado} onChange={(e) => setFieldValue('estado', e.target.value)}>
-                      {estadosVerificacion.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                      {estadosVerificacion.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
                     </TextField>
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
-                    <Field name="analista">
-                      {({ field }) => (
-                        <TextField {...field} label="Analista" fullWidth required error={touched.analista && Boolean(errors.analista)} helperText={touched.analista && errors.analista} />
+                    <Autocomplete
+                      options={usuarios}
+                      getOptionLabel={(u) => `${u.nombre} ${u.apellido}`}
+                      value={usuarios.find((u) => u.id_usuario === values.analista) || null}
+                      onChange={(_, v) => setFieldValue('analista', v ? v.id_usuario : '')}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Analista" required error={touched.analista && Boolean(errors.analista)} helperText={touched.analista && errors.analista} />
                       )}
-                    </Field>
+                    />
                   </Grid>
 
                   <Grid item xs={12}>

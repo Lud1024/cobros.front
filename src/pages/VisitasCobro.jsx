@@ -43,14 +43,26 @@ import { visitasCobroService, clientesService, prestamosService } from '../servi
 import ResponsiveButton from '../components/ResponsiveButton';
 import { formatCurrency } from '../utils/formatters';
 
-const resultadosVisita = ['Pago Realizado', 'Promesa de Pago', 'No Localizado', 'Rechazó Pago', 'Refinanciación'];
+// Valores según ENUM de la BD: 'COBRO','NO_ENCONTRADO','PROMESA','NEGOCIACION','OTRO'
+const resultadosVisita = [
+  { value: 'COBRO', label: 'Cobro Realizado' },
+  { value: 'NO_ENCONTRADO', label: 'No Localizado' },
+  { value: 'PROMESA', label: 'Promesa de Pago' },
+  { value: 'NEGOCIACION', label: 'Negociación' },
+  { value: 'OTRO', label: 'Otro' },
+];
+
+const getResultadoLabel = (value) => {
+  const found = resultadosVisita.find(r => r.value === value);
+  return found ? found.label : value;
+};
 
 const validationSchema = Yup.object({
   id_cliente: Yup.number().required('El cliente es requerido'),
   id_prestamo: Yup.number().required('El préstamo es requerido'),
   resultado: Yup.string().required('El resultado es requerido'),
   mensaje_dejado: Yup.string().nullable(),
-  total_cobros_info: Yup.string().nullable(),
+  total_cobros_info: Yup.number().nullable(),
 });
 
 function VisitasCobro() {
@@ -227,7 +239,7 @@ function VisitasCobro() {
 
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Chip 
-                        label={vis.resultado} 
+                        label={getResultadoLabel(vis.resultado)} 
                         size="small" 
                         color="primary"
                         variant="outlined"
@@ -309,7 +321,7 @@ function VisitasCobro() {
                       </Typography>
                     </TableCell>
                     <TableCell>{prestamo ? `Préstamo #${prestamo.id_prestamo} - ${formatCurrency(prestamo.monto)}` : vis.id_prestamo}</TableCell>
-                    <TableCell>{vis.resultado}</TableCell>
+                    <TableCell>{getResultadoLabel(vis.resultado)}</TableCell>
                     <TableCell>
                       {vis.fecha_visita ? new Date(vis.fecha_visita).toLocaleDateString('es-GT') : '-'}
                     </TableCell>
@@ -444,8 +456,8 @@ function VisitasCobro() {
                         helperText={touched.resultado && errors.resultado}
                       >
                         {resultadosVisita.map((resultado) => (
-                          <MenuItem key={resultado} value={resultado}>
-                            {resultado}
+                          <MenuItem key={resultado.value} value={resultado.value}>
+                            {resultado.label}
                           </MenuItem>
                         ))}
                       </TextField>

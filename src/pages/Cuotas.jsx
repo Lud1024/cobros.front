@@ -103,13 +103,23 @@ const Cuotas = () => {
   };
 
   const getEstadoColor = (estado) => {
+    // Estados según ENUM de la BD: 'activa','vencida','cancelada'
     const colores = {
-      'Pendiente': 'warning',
-      'Pagada': 'success',
-      'Vencida': 'error',
-      'Parcial': 'info',
+      'activa': 'warning',
+      'vencida': 'error',
+      'cancelada': 'success',
     };
     return colores[estado] || 'default';
+  };
+
+  // Obtener label legible del estado
+  const getEstadoLabel = (estado) => {
+    const labels = {
+      'activa': 'Pendiente',
+      'vencida': 'Vencida',
+      'cancelada': 'Pagada',
+    };
+    return labels[estado] || estado || 'Sin estado';
   };
 
   const formatCurrency = (value) => {
@@ -234,7 +244,7 @@ const Cuotas = () => {
                         variant="outlined"
                       />
                       <Chip 
-                        label={cuota.estado || 'Pendiente'} 
+                        label={getEstadoLabel(cuota.estado)} 
                         size="small" 
                         color={getEstadoColor(cuota.estado)}
                         variant="outlined"
@@ -326,7 +336,7 @@ const Cuotas = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={cuota.estado || 'Pendiente'}
+                        label={getEstadoLabel(cuota.estado)}
                         color={getEstadoColor(cuota.estado)}
                         size="small"
                       />
@@ -366,7 +376,7 @@ const Cuotas = () => {
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2">Estado</Typography>
-                <Typography variant="body2">{detailCuota.estado || 'Pendiente'}</Typography>
+                <Typography variant="body2">{getEstadoLabel(detailCuota.estado)}</Typography>
               </Grid>
             </Grid>
           ) : (

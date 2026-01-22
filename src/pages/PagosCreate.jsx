@@ -10,6 +10,7 @@ import {
   Grid,
   InputAdornment,
   Autocomplete,
+  MenuItem,
 } from '@mui/material';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
@@ -65,7 +66,6 @@ const PagosCreate = () => {
               fecha_pago: new Date().toISOString().split('T')[0],
               monto: '',
               metodo_pago: 'Efectivo',
-              numero_recibo: '',
               observaciones: '',
             }}
             validationSchema={validationSchema}
@@ -139,21 +139,11 @@ const PagosCreate = () => {
                       value={values.metodo_pago}
                       onChange={(e) => setFieldValue('metodo_pago', e.target.value)}
                     >
-                      <option value="Efectivo">Efectivo</option>
-                      <option value="Transferencia">Transferencia</option>
-                      <option value="Cheque">Cheque</option>
-                      <option value="Tarjeta">Tarjeta</option>
-                      <option value="Yape">Yape</option>
-                      <option value="Plin">Plin</option>
+                      <MenuItem value="Efectivo">Efectivo</MenuItem>
+                      <MenuItem value="Transferencia">Transferencia</MenuItem>
+                      <MenuItem value="Cheque">Cheque</MenuItem>
+                      <MenuItem value="Tarjeta">Tarjeta</MenuItem>
                     </TextField>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Field name="numero_recibo">
-                      {({ field }) => (
-                        <TextField {...field} label="Número de Recibo" fullWidth />
-                      )}
-                    </Field>
                   </Grid>
 
                   <Grid item xs={12}>

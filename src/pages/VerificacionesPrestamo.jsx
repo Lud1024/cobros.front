@@ -41,17 +41,22 @@ import { useNavigate } from 'react-router-dom';
 import ResponsiveButton from '../components/ResponsiveButton';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { verificacionesPrestamoService, clientesService } from '../services/api';
+import { verificacionesPrestamoService, clientesService, usuariosService } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
 
-const estadosVerificacion = ['Pendiente', 'En Proceso', 'Aprobado', 'Rechazado'];
+// Estados según ENUM de la BD: 'en_proceso', 'aprobado', 'rechazado'
+const estadosVerificacion = [
+  { value: 'en_proceso', label: 'En Proceso' },
+  { value: 'aprobado', label: 'Aprobado' },
+  { value: 'rechazado', label: 'Rechazado' },
+];
 
 const validationSchema = Yup.object({
   id_cliente: Yup.number().required('El cliente es requerido'),
   fecha_solicitud: Yup.date().required('La fecha es requerida'),
   monto_solicitado: Yup.number().required('El monto es requerido').min(0),
   estado: Yup.string().required('El estado es requerido'),
-  analista: Yup.string().required('El analista es requerido').max(100),
+  analista: Yup.number().required('El analista es requerido'),
   comentarios: Yup.string().nullable(),
 });
 
@@ -61,6 +66,7 @@ function VerificacionesPrestamo() {
   const [verificaciones, setVerificaciones] = useState([]);
   const [filteredVerificaciones, setFilteredVerificaciones] = useState([]);
   const [clientes, setClientes] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openDialog, setOpenDialog] = useState(false);
@@ -74,6 +80,7 @@ function VerificacionesPrestamo() {
   useEffect(() => {
     loadVerificaciones();
     loadClientes();
+    loadUsuarios();
   }, []);
 
   useEffect(() => {
@@ -129,22 +136,42 @@ function VerificacionesPrestamo() {
     }
   };
 
+  const loadUsuarios = async () => {
+    try {
+      const data = await usuariosService.getAll();
+      setUsuarios(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const getClienteNombre = (idCliente) => {
     const cliente = clientes.find((c) => c.id_cliente === idCliente);
     return cliente ? `${cliente.nombre} ${cliente.apellido}` : '-';
   };
 
+  const getAnalistaNombre = (idAnalista) => {
+    const usuario = usuarios.find((u) => u.id_usuario === idAnalista);
+    return usuario ? `${usuario.nombre} ${usuario.apellido}` : '-';
+  };
+
   const getEstadoColor = (estado) => {
     switch (estado) {
-      case 'Aprobado':
+      case 'aprobado':
         return 'success';
-      case 'Rechazado':
+      case 'rechazado':
         return 'error';
-      case 'En Proceso':
+      case 'en_proceso':
         return 'warning';
       default:
         return 'default';
     }
+  };
+
+  // Obtener label legible del estado
+  const getEstadoLabel = (estado) => {
+    const found = estadosVerificacion.find(e => e.value === estado);
+    return found ? found.label : estado;
   };
 
   const handleOpenDialog = (verificacion = null) => {
@@ -248,7 +275,7 @@ function VerificacionesPrestamo() {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <PersonIcon fontSize="small" color="action" />
                     <Typography variant="body2" color="text.secondary" noWrap>
-                      {ver.analista}
+                      {getAnalistaNombre(ver.analista)}
                     </Typography>
                   </Box>
 
@@ -260,7 +287,7 @@ function VerificacionesPrestamo() {
                       variant="outlined"
                     />
                     <Chip 
-                      label={ver.estado} 
+                      label={getEstadoLabel(ver.estado)} 
                       size="small" 
                       color={getEstadoColor(ver.estado)}
                       variant="outlined"
@@ -332,9 +359,9 @@ function VerificacionesPrestamo() {
                   <TableCell>{new Date(ver.fecha_solicitud).toLocaleDateString('es-GT')}</TableCell>
                   <TableCell>{formatCurrency(ver.monto_solicitado)}</TableCell>
                   <TableCell>
-                    <Chip label={ver.estado} color={getEstadoColor(ver.estado)} size="small" />
+                    <Chip label={getEstadoLabel(ver.estado)} color={getEstadoColor(ver.estado)} size="small" />
                   </TableCell>
-                  <TableCell>{ver.analista}</TableCell>
+                  <TableCell>{getAnalistaNombre(ver.analista)}</TableCell>
                   <TableCell align="center">
                     <IconButton color="info" size="small" onClick={() => { setDetailVerificacion(ver); setDetailOpen(true); }}>
                       <VisibilityIcon />

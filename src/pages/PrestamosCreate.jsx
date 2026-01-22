@@ -24,6 +24,7 @@ const validationSchema = Yup.object({
   plazo_meses: Yup.number().required('El plazo es requerido').integer().positive(),
   fecha_desembolso: Yup.date().required('La fecha es requerida'),
   id_periodicidad: Yup.number().required('La periodicidad es requerida'),
+  dia_pago: Yup.number().required('El día de pago es requerido').min(1, 'Mínimo 1').max(31, 'Máximo 31'),
 });
 
 const PrestamosCreate = () => {
@@ -70,6 +71,7 @@ const PrestamosCreate = () => {
               plazo_meses: '',
               fecha_desembolso: '',
               id_periodicidad: '',
+              dia_pago: 1,
               observaciones: '',
             }}
             validationSchema={validationSchema}
@@ -180,6 +182,23 @@ const PrestamosCreate = () => {
                         </MenuItem>
                       ))}
                     </TextField>
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <Field name="dia_pago">
+                      {({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Día de Pago (1-31)"
+                          type="number"
+                          fullWidth
+                          required
+                          inputProps={{ min: 1, max: 31 }}
+                          error={touched.dia_pago && Boolean(errors.dia_pago)}
+                          helperText={touched.dia_pago && errors.dia_pago}
+                        />
+                      )}
+                    </Field>
                   </Grid>
 
                   <Grid item xs={12}>

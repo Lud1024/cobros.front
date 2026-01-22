@@ -210,14 +210,25 @@ const Prestamos = () => {
   };
 
   const getEstadoColor = (estado) => {
+    // Estados según ENUM de la BD: 'activo','cancelado','vencido','anulado'
     const colores = {
-      'Pendiente': 'warning',
-      'Aprobado': 'success',
-      'Rechazado': 'error',
-      'Cancelado': 'default',
-      'Pagado': 'info',
+      'activo': 'success',
+      'cancelado': 'info',
+      'vencido': 'error',
+      'anulado': 'default',
     };
     return colores[estado] || 'default';
+  };
+
+  // Obtener label legible del estado
+  const getEstadoLabel = (estado) => {
+    const labels = {
+      'activo': 'Activo',
+      'cancelado': 'Cancelado',
+      'vencido': 'Vencido',
+      'anulado': 'Anulado',
+    };
+    return labels[estado] || estado || 'Sin estado';
   };
 
   const filteredPrestamos = prestamos.filter((prestamo) => {
@@ -319,7 +330,7 @@ const Prestamos = () => {
                           variant="outlined"
                         />
                         <Chip 
-                          label={prestamo.estado || 'Pendiente'}
+                          label={getEstadoLabel(prestamo.estado)}
                           size="small"
                           color={getEstadoColor(prestamo.estado)}
                         />
@@ -398,7 +409,7 @@ const Prestamos = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={prestamo.estado || 'Pendiente'}
+                        label={getEstadoLabel(prestamo.estado)}
                         color={getEstadoColor(prestamo.estado)}
                         size="small"
                       />
@@ -472,7 +483,7 @@ const Prestamos = () => {
               <Grid item xs={6}>
                 <Typography variant="overline" color="text.secondary">Estado</Typography>
                 <Chip
-                  label={detailPrestamo.estado || 'Pendiente'}
+                  label={getEstadoLabel(detailPrestamo.estado)}
                   color={getEstadoColor(detailPrestamo.estado)}
                   size="small"
                 />
