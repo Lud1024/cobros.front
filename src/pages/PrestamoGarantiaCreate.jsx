@@ -97,7 +97,9 @@ const PrestamoGarantiaCreate = () => {
                   </Grid>
                   <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                     <Button variant="outlined" onClick={() => navigate('/app/prestamo-garantia')}>Cancelar</Button>
-                    <Button type="submit" variant="contained" disabled={isSubmitting}>Crear</Button>
+                    <Button type="submit" variant="contained" disabled={isSubmitting}>
+                      {isSubmitting ? 'Guardando...' : 'Crear'}
+                    </Button>
                   </Grid>
                 </Grid>
               </Form>

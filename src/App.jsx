@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Clientes from './pages/Clientes';
 import ClientesCreate from './pages/ClientesCreate';
+import ClienteReferencias from './pages/ClienteReferencias';
 import ClienteDocumentos from './pages/ClienteDocumentos';
 import ClienteDocumentosCreate from './pages/ClienteDocumentosCreate';
 import Carteras from './pages/Carteras';
@@ -76,6 +77,7 @@ function App() {
                 {/* Clientes */}
                 <Route path="clientes" element={<Clientes />} />
                 <Route path="clientes/nuevo" element={<ClientesCreate />} />
+                <Route path="cliente-referencias" element={<ClienteReferencias />} />
                 <Route path="cliente-documentos" element={<ClienteDocumentos />} />
                 <Route path="cliente-documentos/nuevo" element={<ClienteDocumentosCreate />} />
                 

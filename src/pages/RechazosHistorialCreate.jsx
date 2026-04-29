@@ -90,7 +90,9 @@ const RechazosHistorialCreate = () => {
 
                   <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                     <Button variant="outlined" onClick={() => navigate('/app/rechazos-historial')}>Cancelar</Button>
-                    <Button type="submit" variant="contained" disabled={isSubmitting}>Crear</Button>
+                    <Button type="submit" variant="contained" disabled={isSubmitting}>
+                      {isSubmitting ? 'Guardando...' : 'Crear'}
+                    </Button>
                   </Grid>
                 </Grid>
               </Form>

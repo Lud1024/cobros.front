@@ -238,7 +238,7 @@ function Roles() {
     try {
       const dataToSend = {
         ...values,
-        permisos: JSON.stringify(permisos)
+        permisos
       };
       
       if (selectedRol) {
@@ -556,7 +556,7 @@ function Roles() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  {selectedRol ? 'Actualizar' : 'Crear'}
+                  {isSubmitting ? 'Guardando...' : selectedRol ? 'Actualizar' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>

@@ -188,6 +188,7 @@ const Login = () => {
                 name="usuario"
                 label="Usuario"
                 margin="normal"
+                autoComplete="username"
                 value={formik.values.usuario}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
@@ -219,6 +220,7 @@ const Login = () => {
                 label="Contraseña"
                 type={showPassword ? 'text' : 'password'}
                 margin="normal"
+                autoComplete="current-password"
                 value={formik.values.password}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}

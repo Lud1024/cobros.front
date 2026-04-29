@@ -39,7 +39,8 @@ import {
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { politicasMoraService, carterasService } from '../services/api';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDate, formatDateForInput, isValidDateInput, parseDateLocal } from '../utils/formatters';
+import DateInputField from '../components/DateInputField';
 
 const validationSchema = Yup.object({
   id_cartera: Yup.number().required('La cartera es requerida'),
@@ -50,10 +51,17 @@ const validationSchema = Yup.object({
   tope_mora: Yup.number()
     .required('El tope de mora es requerido')
     .min(0, 'Debe ser mayor o igual a 0'),
-  vigente_desde: Yup.date().required('La fecha de inicio es requerida'),
-  vigente_hasta: Yup.date()
+  vigente_desde: Yup.string()
+    .required('La fecha de inicio es requerida')
+    .test('fecha-valida', 'Fecha invalida', (value) => isValidDateInput(value)),
+  vigente_hasta: Yup.string()
     .nullable()
-    .min(Yup.ref('vigente_desde'), 'Debe ser posterior a la fecha de inicio'),
+    .test('fecha-valida', 'Fecha invalida', (value) => !value || isValidDateInput(value))
+    .test('posterior', 'Debe ser posterior a la fecha de inicio', function (value) {
+      if (!value || !this.parent.vigente_desde) return true;
+      if (!isValidDateInput(value) || !isValidDateInput(this.parent.vigente_desde)) return false;
+      return value >= this.parent.vigente_desde;
+    }),
 });
 
 function PoliticasMora() {
@@ -114,8 +122,10 @@ function PoliticasMora() {
 
   const isVigente = (vigente_desde, vigente_hasta) => {
     const hoy = new Date();
-    const desde = new Date(vigente_desde);
-    const hasta = vigente_hasta ? new Date(vigente_hasta) : null;
+    hoy.setHours(12, 0, 0, 0);
+    const desde = parseDateLocal(vigente_desde);
+    const hasta = vigente_hasta ? parseDateLocal(vigente_hasta) : null;
+    if (!desde || isNaN(desde.getTime())) return false;
     return desde <= hoy && (!hasta || hasta >= hoy);
   };
 
@@ -241,7 +251,7 @@ function PoliticasMora() {
 
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Chip 
-                        label={new Date(politica.vigente_desde).toLocaleDateString('es-GT')} 
+                        label={formatDate(politica.vigente_desde)} 
                         size="small" 
                         color="primary"
                         variant="outlined"
@@ -319,10 +329,10 @@ function PoliticasMora() {
                     <TableCell>{getCarteraNombre(politica.id_cartera)}</TableCell>
                     <TableCell>{politica.tasa_mora_diaria}%</TableCell>
                     <TableCell>{formatCurrency(politica.tope_mora)}</TableCell>
-                    <TableCell>{new Date(politica.vigente_desde).toLocaleDateString('es-GT')}</TableCell>
+                    <TableCell>{formatDate(politica.vigente_desde)}</TableCell>
                     <TableCell>
                       {politica.vigente_hasta
-                        ? new Date(politica.vigente_hasta).toLocaleDateString('es-GT')
+                        ? formatDate(politica.vigente_hasta)
                         : 'Indefinido'}
                     </TableCell>
                     <TableCell>
@@ -398,13 +408,13 @@ function PoliticasMora() {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">Vigente Desde:</Typography>
-                <Typography variant="body1">{new Date(detailPolitica.vigente_desde).toLocaleDateString('es-GT')}</Typography>
+                <Typography variant="body1">{formatDate(detailPolitica.vigente_desde)}</Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">Vigente Hasta:</Typography>
                 <Typography variant="body1">
                   {detailPolitica.vigente_hasta
-                    ? new Date(detailPolitica.vigente_hasta).toLocaleDateString('es-GT')
+                    ? formatDate(detailPolitica.vigente_hasta)
                     : 'Indefinido'}
                 </Typography>
               </Grid>
@@ -434,8 +444,8 @@ function PoliticasMora() {
             id_cartera: selectedPolitica?.id_cartera || '',
             tasa_mora_diaria: selectedPolitica?.tasa_mora_diaria || '',
             tope_mora: selectedPolitica?.tope_mora || '',
-            vigente_desde: selectedPolitica?.vigente_desde?.split('T')[0] || '',
-            vigente_hasta: selectedPolitica?.vigente_hasta?.split('T')[0] || '',
+            vigente_desde: formatDateForInput(selectedPolitica?.vigente_desde),
+            vigente_hasta: formatDateForInput(selectedPolitica?.vigente_hasta),
           }}
           validationSchema={validationSchema}
           onSubmit={handleSubmit}
@@ -493,30 +503,26 @@ function PoliticasMora() {
                   </Field>
 
                   <Field name="vigente_desde">
-                    {({ field }) => (
-                      <TextField
-                        {...field}
+                    {({ field, form }) => (
+                      <DateInputField
+                        field={field}
+                        form={form}
                         label="Vigente Desde"
-                        type="date"
                         fullWidth
                         required
                         InputLabelProps={{ shrink: true }}
-                        error={touched.vigente_desde && Boolean(errors.vigente_desde)}
-                        helperText={touched.vigente_desde && errors.vigente_desde}
                       />
                     )}
                   </Field>
 
                   <Field name="vigente_hasta">
-                    {({ field }) => (
-                      <TextField
-                        {...field}
+                    {({ field, form }) => (
+                      <DateInputField
+                        field={field}
+                        form={form}
                         label="Vigente Hasta"
-                        type="date"
                         fullWidth
                         InputLabelProps={{ shrink: true }}
-                        error={touched.vigente_hasta && Boolean(errors.vigente_hasta)}
-                        helperText={touched.vigente_hasta && errors.vigente_hasta}
                       />
                     )}
                   </Field>
@@ -525,7 +531,7 @@ function PoliticasMora() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  {selectedPolitica ? 'Actualizar' : 'Crear'}
+                  {isSubmitting ? 'Guardando...' : selectedPolitica ? 'Actualizar' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>

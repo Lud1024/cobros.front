@@ -409,7 +409,7 @@ const Carteras = () => {
               variant="contained"
               disabled={formik.isSubmitting}
             >
-              {editMode ? 'Actualizar' : 'Crear'}
+              {formik.isSubmitting ? 'Guardando...' : editMode ? 'Actualizar' : 'Crear'}
             </Button>
           </DialogActions>
         </form>

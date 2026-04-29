@@ -42,7 +42,9 @@ import ResponsiveButton from '../components/ResponsiveButton';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { verificacionesPrestamoService, clientesService, usuariosService } from '../services/api';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDate, formatDateForInput, isValidDateInput } from '../utils/formatters';
+import { useAuth } from '../contexts/AuthContext';
+import DateInputField from '../components/DateInputField';
 
 // Estados según ENUM de la BD: 'en_proceso', 'aprobado', 'rechazado'
 const estadosVerificacion = [
@@ -53,7 +55,9 @@ const estadosVerificacion = [
 
 const validationSchema = Yup.object({
   id_cliente: Yup.number().required('El cliente es requerido'),
-  fecha_solicitud: Yup.date().required('La fecha es requerida'),
+  fecha_solicitud: Yup.string()
+    .required('La fecha es requerida')
+    .test('fecha-valida', 'Fecha invalida', isValidDateInput),
   monto_solicitado: Yup.number().required('El monto es requerido').min(0),
   estado: Yup.string().required('El estado es requerido'),
   analista: Yup.number().required('El analista es requerido'),
@@ -76,6 +80,8 @@ function VerificacionesPrestamo() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailVerificacion, setDetailVerificacion] = useState(null);
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission('verificar_prestamos');
 
   useEffect(() => {
     loadVerificaciones();
@@ -269,7 +275,7 @@ function VerificacionesPrestamo() {
                     {getClienteNombre(ver.id_cliente)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    ID: {ver.id_verificacion} | {new Date(ver.fecha_solicitud).toLocaleDateString('es-GT')}
+                    ID: {ver.id_verificacion} | {formatDate(ver.fecha_solicitud)}
                   </Typography>
                   
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -303,20 +309,24 @@ function VerificacionesPrestamo() {
                   >
                     <VisibilityIcon fontSize="small" />
                   </IconButton>
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={() => handleOpenDialog(ver)}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleDelete(ver.id_verificacion)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+                  {canManage && (
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => handleOpenDialog(ver)}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                  {canManage && (
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => handleDelete(ver.id_verificacion)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
                 </Box>
               </CardContent>
             </Card>
@@ -356,7 +366,7 @@ function VerificacionesPrestamo() {
                     <Typography variant="body2">{ver.id_verificacion}</Typography>
                   </TableCell>
                   <TableCell>{getClienteNombre(ver.id_cliente)}</TableCell>
-                  <TableCell>{new Date(ver.fecha_solicitud).toLocaleDateString('es-GT')}</TableCell>
+                  <TableCell>{formatDate(ver.fecha_solicitud)}</TableCell>
                   <TableCell>{formatCurrency(ver.monto_solicitado)}</TableCell>
                   <TableCell>
                     <Chip label={getEstadoLabel(ver.estado)} color={getEstadoColor(ver.estado)} size="small" />
@@ -366,12 +376,16 @@ function VerificacionesPrestamo() {
                     <IconButton color="info" size="small" onClick={() => { setDetailVerificacion(ver); setDetailOpen(true); }}>
                       <VisibilityIcon />
                     </IconButton>
-                    <IconButton color="primary" size="small" onClick={() => handleOpenDialog(ver)}>
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton color="error" size="small" onClick={() => handleDelete(ver.id_verificacion)}>
-                      <DeleteIcon />
-                    </IconButton>
+                    {canManage && (
+                      <IconButton color="primary" size="small" onClick={() => handleOpenDialog(ver)}>
+                        <EditIcon />
+                      </IconButton>
+                    )}
+                    {canManage && (
+                      <IconButton color="error" size="small" onClick={() => handleDelete(ver.id_verificacion)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -400,7 +414,7 @@ function VerificacionesPrestamo() {
               <Typography variant="subtitle2">Cliente</Typography>
               <Typography variant="body2">{getClienteNombre(detailVerificacion.id_cliente)}</Typography>
               <Typography variant="subtitle2">Fecha Solicitud</Typography>
-              <Typography variant="body2">{detailVerificacion.fecha_solicitud ? new Date(detailVerificacion.fecha_solicitud).toLocaleDateString('es-GT') : '-'}</Typography>
+              <Typography variant="body2">{detailVerificacion.fecha_solicitud ? formatDate(detailVerificacion.fecha_solicitud) : '-'}</Typography>
               <Typography variant="subtitle2">Monto Solicitado</Typography>
               <Typography variant="body2">{formatCurrency(detailVerificacion.monto_solicitado)}</Typography>
               <Typography variant="subtitle2">Estado</Typography>
@@ -422,7 +436,7 @@ function VerificacionesPrestamo() {
         <Formik
           initialValues={{
             id_cliente: selectedVerificacion?.id_cliente || '',
-            fecha_solicitud: selectedVerificacion?.fecha_solicitud?.split('T')[0] || '',
+            fecha_solicitud: formatDateForInput(selectedVerificacion?.fecha_solicitud),
             monto_solicitado: selectedVerificacion?.monto_solicitado || '',
             estado: selectedVerificacion?.estado || 'Pendiente',
             analista: selectedVerificacion?.analista || '',
@@ -452,16 +466,14 @@ function VerificacionesPrestamo() {
                   />
 
                   <Field name="fecha_solicitud">
-                    {({ field }) => (
-                      <TextField
-                        {...field}
+                    {({ field, form }) => (
+                      <DateInputField
+                        field={field}
+                        form={form}
                         label="Fecha de Solicitud"
-                        type="date"
                         fullWidth
                         required
                         InputLabelProps={{ shrink: true }}
-                        error={touched.fecha_solicitud && Boolean(errors.fecha_solicitud)}
-                        helperText={touched.fecha_solicitud && errors.fecha_solicitud}
                       />
                     )}
                   </Field>
@@ -493,8 +505,8 @@ function VerificacionesPrestamo() {
                         helperText={touched.estado && errors.estado}
                       >
                         {estadosVerificacion.map((estado) => (
-                          <MenuItem key={estado} value={estado}>
-                            {estado}
+                          <MenuItem key={estado.value} value={estado.value}>
+                            {estado.label}
                           </MenuItem>
                         ))}
                       </TextField>
@@ -532,7 +544,7 @@ function VerificacionesPrestamo() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  {selectedVerificacion ? 'Actualizar' : 'Crear'}
+                  {isSubmitting ? 'Guardando...' : selectedVerificacion ? 'Actualizar' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>

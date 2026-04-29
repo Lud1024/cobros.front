@@ -450,7 +450,7 @@ function PagoAplicaciones() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  {selectedAplicacion ? 'Actualizar' : 'Crear'}
+                  {isSubmitting ? 'Guardando...' : selectedAplicacion ? 'Actualizar' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>

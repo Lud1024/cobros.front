@@ -128,20 +128,28 @@ export const AuthProvider = ({ children }) => {
     setShowWarning(false);
   };
 
+  const isAdmin = () => {
+    if (!user || !user.roles) return false;
+    return user.roles.some(r => r.nombre_rol?.toLowerCase() === 'administrador');
+  };
+
   // Verificar si el usuario tiene un permiso específico
   const hasPermission = (permiso) => {
+    if (isAdmin()) return true;
     if (!user || !user.permisos) return false;
     return user.permisos[permiso] === true;
   };
 
   // Verificar si el usuario tiene alguno de los permisos (OR)
   const hasAnyPermission = (permisos) => {
+    if (isAdmin()) return true;
     if (!user || !user.permisos) return false;
     return permisos.some(p => user.permisos[p] === true);
   };
 
   // Verificar si el usuario tiene todos los permisos (AND)
   const hasAllPermissions = (permisos) => {
+    if (isAdmin()) return true;
     if (!user || !user.permisos) return false;
     return permisos.every(p => user.permisos[p] === true);
   };

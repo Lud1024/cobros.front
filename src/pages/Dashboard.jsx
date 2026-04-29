@@ -13,6 +13,7 @@ import {
   Tooltip,
   Paper,
   Divider,
+  Alert,
 } from '@mui/material';
 import {
   People,
@@ -23,10 +24,11 @@ import {
   PictureAsPdf,
   Refresh,
   TableChart,
+  WarningAmber,
 } from '@mui/icons-material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { useSnackbar } from 'notistack';
-import { clientesService, prestamosService, pagosService, getErrorMessage } from '../services/api';
+import { clientesService, prestamosService, pagosService, cuotasService, getErrorMessage } from '../services/api';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import PageHeader from '../components/PageHeader';
 import ResponsiveButton from '../components/ResponsiveButton';
@@ -136,6 +138,8 @@ const Dashboard = () => {
     totalPrestamos: 0,
     totalMontoPrestado: 0,
     totalPagos: 0,
+    cuotasVencidas: 0,
+    moraPendiente: 0,
   });
   const [prestamosData, setPrestamosData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -150,20 +154,29 @@ const Dashboard = () => {
       if (showRefreshing) setRefreshing(true);
       else setLoading(true);
       
-      const [clientes, prestamos, pagos] = await Promise.all([
+      const [clientes, prestamos, pagos, cuotas] = await Promise.all([
         clientesService.getAll(),
         prestamosService.getAll(),
         pagosService.getAll(),
+        cuotasService.getAll(),
       ]);
 
       const totalMonto = prestamos.reduce((sum, p) => sum + parseFloat(p.monto || 0), 0);
       const totalPagosSum = pagos.reduce((sum, p) => sum + parseFloat(p.monto_recibido || 0), 0);
+      const cuotasVencidas = cuotas.filter((c) => c.estado === 'vencida').length;
+      const moraPendiente = cuotas.reduce((sum, c) => {
+        const mora = Number(c.mora_acumulada || 0);
+        const pagada = Number(c.mora_pagada || 0);
+        return sum + Math.max(0, mora - pagada);
+      }, 0);
 
       setStats({
         totalClientes: clientes.length,
         totalPrestamos: prestamos.length,
         totalMontoPrestado: totalMonto,
         totalPagos: totalPagosSum,
+        cuotasVencidas,
+        moraPendiente,
       });
 
       // Agrupar préstamos por estado
@@ -372,6 +385,16 @@ const Dashboard = () => {
       </Grid>
 
       {/* Gráficos */}
+      {!loading && (stats.cuotasVencidas > 0 || stats.moraPendiente > 0) ? (
+        <Alert
+          severity="warning"
+          icon={<WarningAmber />}
+          sx={{ mb: { xs: 2, sm: 3 }, alignItems: 'center' }}
+        >
+          {stats.cuotasVencidas} cuota{stats.cuotasVencidas !== 1 ? 's' : ''} vencida{stats.cuotasVencidas !== 1 ? 's' : ''} con mora pendiente de {formatCurrency(stats.moraPendiente)}.
+        </Alert>
+      ) : null}
+
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
         <Grid item xs={12} lg={8}>
           <Card elevation={2}>

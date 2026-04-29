@@ -419,7 +419,7 @@ function Periodicidades() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  {selectedPeriodicidad ? 'Actualizar' : 'Crear'}
+                  {isSubmitting ? 'Guardando...' : selectedPeriodicidad ? 'Actualizar' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>

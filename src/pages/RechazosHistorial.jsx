@@ -40,6 +40,7 @@ import { useNavigate } from 'react-router-dom';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { rechazosHistorialService, verificacionesPrestamoService } from '../services/api';
+import { formatDate } from '../utils/formatters';
 
 const validationSchema = Yup.object({
   id_verificacion: Yup.number().required('La verificación es requerida'),
@@ -201,7 +202,7 @@ function RechazosHistorial() {
 
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       <Chip 
-                        label={rec.fecha_rechazo ? new Date(rec.fecha_rechazo).toLocaleDateString('es-GT') : 'Sin fecha'} 
+                        label={rec.fecha_rechazo ? formatDate(rec.fecha_rechazo) : 'Sin fecha'} 
                         size="small" 
                         color="primary"
                         variant="outlined"
@@ -280,7 +281,7 @@ function RechazosHistorial() {
                     <TableCell>{verificacion ? `Verificación #${verificacion.id_verificacion} - ${verificacion.analista}` : rec.id_verificacion}</TableCell>
                     <TableCell>{rec.motivo}</TableCell>
                     <TableCell>
-                      {rec.fecha_rechazo ? new Date(rec.fecha_rechazo).toLocaleDateString('es-GT') : '-'}
+                      {rec.fecha_rechazo ? formatDate(rec.fecha_rechazo) : '-'}
                     </TableCell>
                     <TableCell align="center">
                       <IconButton
@@ -346,7 +347,7 @@ function RechazosHistorial() {
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">Fecha Rechazo:</Typography>
                 <Typography variant="body1">
-                  {detailRechazo.fecha_rechazo ? new Date(detailRechazo.fecha_rechazo).toLocaleDateString('es-GT') : '-'}
+                  {detailRechazo.fecha_rechazo ? formatDate(detailRechazo.fecha_rechazo) : '-'}
                 </Typography>
               </Grid>
             </Grid>
@@ -408,7 +409,7 @@ function RechazosHistorial() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  {selectedRechazo ? 'Actualizar' : 'Crear'}
+                  {isSubmitting ? 'Guardando...' : selectedRechazo ? 'Actualizar' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>

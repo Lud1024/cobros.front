@@ -43,9 +43,10 @@ import ResponsiveButton from '../components/ResponsiveButton';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
+import DateInputField from '../components/DateInputField';
 import { prestamosService, clientesService, periodicidadesService } from '../services/api';
-import { formatCurrency } from '../utils/formatters';
-import { format } from 'date-fns';
+import { formatCurrency, formatDate, formatDateForInput, isValidDateInput } from '../utils/formatters';
+import { useAuth } from '../contexts/AuthContext';
 
 const validationSchema = Yup.object({
   id_cliente: Yup.number()
@@ -62,9 +63,10 @@ const validationSchema = Yup.object({
     .required('El plazo es requerido')
     .integer('Debe ser un número entero')
     .positive('El plazo debe ser positivo')
-    .min(1, 'El plazo debe ser al menos 1 mes'),
-  fecha_desembolso: Yup.date()
-    .required('La fecha de desembolso es requerida'),
+    .min(1, 'El plazo debe ser al menos 1 cuota'),
+  fecha_desembolso: Yup.string()
+    .required('La fecha de desembolso es requerida')
+    .test('fecha-valida', 'Fecha invalida', isValidDateInput),
   id_periodicidad: Yup.number()
     .required('La periodicidad es requerida'),
 });
@@ -82,6 +84,9 @@ const Prestamos = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('editar_prestamos');
+  const canDelete = hasPermission('eliminar_prestamos');
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailPrestamo, setDetailPrestamo] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, prestamo: null });
@@ -170,7 +175,7 @@ const Prestamos = () => {
       monto_prestamo: prestamo.monto_prestamo || '',
       tasa_interes: prestamo.tasa_interes || '',
       plazo_meses: prestamo.plazo_meses || '',
-      fecha_desembolso: prestamo.fecha_desembolso?.split('T')[0] || '',
+      fecha_desembolso: formatDateForInput(prestamo.fecha_desembolso),
       id_periodicidad: prestamo.id_periodicidad || '',
       observaciones: prestamo.observaciones || '',
     });
@@ -206,7 +211,7 @@ const Prestamos = () => {
 
   const getPeriodicidadName = (idPeriodicidad) => {
     const periodicidad = periodicidades.find((p) => p.id_periodicidad === idPeriodicidad);
-    return periodicidad?.nombre || 'N/A';
+    return periodicidad ? `${periodicidad.codigo} (${periodicidad.dias} dias)` : 'N/A';
   };
 
   const getEstadoColor = (estado) => {
@@ -325,7 +330,7 @@ const Prestamos = () => {
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                         <Chip 
-                          label={`${prestamo.tasa_interes}% - ${prestamo.plazo_meses} meses`}
+                          label={`${prestamo.tasa_interes}% - ${prestamo.plazo_meses} cuotas`}
                           size="small"
                           variant="outlined"
                         />
@@ -344,12 +349,16 @@ const Prestamos = () => {
                       >
                         <Visibility fontSize="small" />
                       </IconButton>
-                      <IconButton size="small" color="info" onClick={() => handleEdit(prestamo)}>
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteClick(prestamo)}>
-                        <Delete fontSize="small" />
-                      </IconButton>
+                      {canEdit && (
+                        <IconButton size="small" color="info" onClick={() => handleEdit(prestamo)}>
+                          <Edit fontSize="small" />
+                        </IconButton>
+                      )}
+                      {canDelete && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteClick(prestamo)}>
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
                 </CardContent>
@@ -400,11 +409,11 @@ const Prestamos = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>{prestamo.tasa_interes}%</TableCell>
-                    <TableCell>{prestamo.plazo_meses} meses</TableCell>
+                    <TableCell>{prestamo.plazo_meses} cuotas</TableCell>
                     <TableCell>{getPeriodicidadName(prestamo.id_periodicidad)}</TableCell>
                     <TableCell>
                       {prestamo.fecha_desembolso
-                        ? format(new Date(prestamo.fecha_desembolso), 'dd/MM/yyyy')
+                        ? formatDate(prestamo.fecha_desembolso)
                         : 'N/A'}
                     </TableCell>
                     <TableCell>
@@ -424,24 +433,28 @@ const Prestamos = () => {
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Editar">
-                        <IconButton
-                          size="small"
-                          color="info"
-                          onClick={() => handleEdit(prestamo)}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteClick(prestamo)}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      {canEdit && (
+                        <Tooltip title="Editar">
+                          <IconButton
+                            size="small"
+                            color="info"
+                            onClick={() => handleEdit(prestamo)}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {canDelete && (
+                        <Tooltip title="Eliminar">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteClick(prestamo)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -470,7 +483,7 @@ const Prestamos = () => {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="overline" color="text.secondary">Plazo</Typography>
-                <Typography variant="body2">{detailPrestamo.plazo_meses} meses</Typography>
+                <Typography variant="body2">{detailPrestamo.plazo_meses} cuotas</Typography>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="overline" color="text.secondary">Periodicidad</Typography>
@@ -478,7 +491,7 @@ const Prestamos = () => {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="overline" color="text.secondary">Fecha de Desembolso</Typography>
-                <Typography variant="body2">{detailPrestamo.fecha_desembolso ? format(new Date(detailPrestamo.fecha_desembolso), 'dd/MM/yyyy') : 'N/A'}</Typography>
+                <Typography variant="body2">{detailPrestamo.fecha_desembolso ? formatDate(detailPrestamo.fecha_desembolso) : 'N/A'}</Typography>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="overline" color="text.secondary">Estado</Typography>
@@ -562,7 +575,7 @@ const Prestamos = () => {
                   margin="dense"
                   id="plazo_meses"
                   name="plazo_meses"
-                  label="Plazo (Meses)"
+                  label="Plazo (Cuotas)"
                   type="number"
                   value={formik.values.plazo_meses}
                   onChange={formik.handleChange}
@@ -572,19 +585,17 @@ const Prestamos = () => {
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
-                <TextField
+                <DateInputField
+                  field={{
+                    name: 'fecha_desembolso',
+                    value: formik.values.fecha_desembolso,
+                  }}
+                  form={formik}
                   fullWidth
                   margin="dense"
                   id="fecha_desembolso"
-                  name="fecha_desembolso"
                   label="Fecha de Desembolso"
-                  type="date"
                   InputLabelProps={{ shrink: true }}
-                  value={formik.values.fecha_desembolso}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.touched.fecha_desembolso && Boolean(formik.errors.fecha_desembolso)}
-                  helperText={formik.touched.fecha_desembolso && formik.errors.fecha_desembolso}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>

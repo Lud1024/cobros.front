@@ -16,7 +16,8 @@ import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { verificacionesPrestamoService, clientesService, usuariosService } from '../services/api';
 import { useSnackbar } from 'notistack';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, isValidDateInput } from '../utils/formatters';
+import DateInputField from '../components/DateInputField';
 
 // Estados según ENUM de la BD: 'en_proceso', 'aprobado', 'rechazado'
 const estadosVerificacion = [
@@ -27,7 +28,9 @@ const estadosVerificacion = [
 
 const validationSchema = Yup.object({
   id_cliente: Yup.number().required('El cliente es requerido'),
-  fecha_solicitud: Yup.date().required('La fecha es requerida'),
+  fecha_solicitud: Yup.string()
+    .required('La fecha es requerida')
+    .test('fecha-valida', 'Fecha invalida', isValidDateInput),
   monto_solicitado: Yup.number().required('El monto es requerido').min(0),
   estado: Yup.string().required('El estado es requerido'),
   analista: Yup.number().required('El analista es requerido'),
@@ -94,8 +97,8 @@ const VerificacionesPrestamoCreate = () => {
 
                   <Grid item xs={12} sm={6}>
                     <Field name="fecha_solicitud">
-                      {({ field }) => (
-                        <TextField {...field} label="Fecha de Solicitud" type="date" InputLabelProps={{ shrink: true }} fullWidth required error={touched.fecha_solicitud && Boolean(errors.fecha_solicitud)} helperText={touched.fecha_solicitud && errors.fecha_solicitud} />
+                      {({ field, form }) => (
+                        <DateInputField field={field} form={form} label="Fecha de Solicitud" InputLabelProps={{ shrink: true }} fullWidth required />
                       )}
                     </Field>
                   </Grid>
@@ -136,7 +139,9 @@ const VerificacionesPrestamoCreate = () => {
 
                   <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                     <Button variant="outlined" onClick={() => navigate('/app/verificaciones-prestamo')}>Cancelar</Button>
-                    <Button type="submit" variant="contained" disabled={isSubmitting}>Crear</Button>
+                    <Button type="submit" variant="contained" disabled={isSubmitting}>
+                      {isSubmitting ? 'Guardando...' : 'Crear'}
+                    </Button>
                   </Grid>
                 </Grid>
               </Form>

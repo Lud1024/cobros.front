@@ -45,14 +45,18 @@ import ResponsiveButton from '../components/ResponsiveButton';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
-import { pagosService, prestamosService, clientesService } from '../services/api';
-import { format } from 'date-fns';
+import DateInputField from '../components/DateInputField';
+import { pagosService, prestamosService, clientesService, cuotasService, pagoAplicacionesService } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { formatDate, formatDateForInput, isValidDateInput, todayDateInput } from '../utils/formatters';
+import { printPaymentReceipt } from '../utils/printTickets';
 
 const validationSchema = Yup.object({
   id_prestamo: Yup.number()
     .required('El préstamo es requerido'),
-  fecha_pago: Yup.date()
-    .required('La fecha de pago es requerida'),
+  fecha_pago: Yup.string()
+    .required('La fecha de pago es requerida')
+    .test('fecha-valida', 'Fecha invalida', isValidDateInput),
   monto: Yup.number()
     .required('El monto es requerido')
     .positive('El monto debe ser positivo')
@@ -67,6 +71,8 @@ const Pagos = () => {
   const [pagos, setPagos] = useState([]);
   const [prestamos, setPrestamos] = useState([]);
   const [clientes, setClientes] = useState([]);
+  const [cuotas, setCuotas] = useState([]);
+  const [aplicacionesPagos, setAplicacionesPagos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -77,11 +83,14 @@ const Pagos = () => {
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, pago: null });
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('editar_pagos');
+  const canDelete = hasPermission('eliminar_pagos');
 
   const formik = useFormik({
     initialValues: {
       id_prestamo: '',
-      fecha_pago: new Date().toISOString().split('T')[0],
+      fecha_pago: todayDateInput(),
       monto: '',
       metodo_pago: 'Efectivo',
       numero_recibo: '',
@@ -98,11 +107,23 @@ const Pagos = () => {
         delete payload.monto;
 
         if (editMode && selectedPago) {
-          await pagosService.update(selectedPago.id_pago, payload);
-          enqueueSnackbar('Pago actualizado exitosamente', { variant: 'success' });
+          const result = await pagosService.update(selectedPago.id_pago, payload);
+          const saldoNoAplicado = Number(result.saldo_no_aplicado || 0);
+          enqueueSnackbar(
+            saldoNoAplicado > 0
+              ? `Pago actualizado. Quedo Q ${saldoNoAplicado.toFixed(2)} sin aplicar.`
+              : 'Pago actualizado exitosamente',
+            { variant: saldoNoAplicado > 0 ? 'warning' : 'success' }
+          );
         } else {
-          await pagosService.create(payload);
-          enqueueSnackbar('Pago registrado exitosamente', { variant: 'success' });
+          const result = await pagosService.create(payload);
+          const saldoNoAplicado = Number(result.saldo_no_aplicado || 0);
+          enqueueSnackbar(
+            saldoNoAplicado > 0
+              ? `Pago registrado. Quedo Q ${saldoNoAplicado.toFixed(2)} sin aplicar.`
+              : 'Pago registrado exitosamente',
+            { variant: saldoNoAplicado > 0 ? 'warning' : 'success' }
+          );
         }
         handleClose();
         resetForm();
@@ -121,14 +142,18 @@ const Pagos = () => {
   const fetchPagos = useCallback(async () => {
     try {
       setLoading(true);
-      const [pagosData, prestamosData, clientesData] = await Promise.all([
+      const [pagosData, prestamosData, clientesData, cuotasData, aplicacionesData] = await Promise.all([
         pagosService.getAll(),
         prestamosService.getAll(),
         clientesService.getAll(),
+        cuotasService.getAll(),
+        pagoAplicacionesService.getAll(),
       ]);
       setPagos(pagosData);
       setPrestamos(prestamosData);
       setClientes(clientesData);
+      setCuotas(cuotasData);
+      setAplicacionesPagos(aplicacionesData);
     } catch (error) {
       console.error('Error cargando pagos:', error);
       if (error.response?.status === 403 || error.response?.status === 401) {
@@ -157,7 +182,7 @@ const Pagos = () => {
     setSelectedPago(pago);
     formik.setValues({
       id_prestamo: pago.id_prestamo || '',
-      fecha_pago: pago.fecha_pago?.split('T')[0] || '',
+      fecha_pago: formatDateForInput(pago.fecha_pago),
       monto: pago.monto_recibido || pago.monto || '',
       metodo_pago: pago.metodo_pago || 'Efectivo',
       numero_recibo: pago.numero_recibo || pago.id_pago || '',
@@ -206,6 +231,20 @@ const Pagos = () => {
   const handlePrintReceipt = (pago) => {
     const prestamo = prestamos.find(p => p.id_prestamo === pago.id_prestamo);
     const cliente = clientes.find(c => c.id_cliente === prestamo?.id_cliente);
+
+    const printed = printPaymentReceipt({
+      pago,
+      prestamo,
+      cliente,
+      cuotas,
+      aplicaciones: aplicacionesPagos,
+    });
+
+    if (!printed) {
+      enqueueSnackbar('No se pudo abrir la ventana de impresion', { variant: 'error' });
+    }
+
+    return;
     
     const receiptContent = `
       <!DOCTYPE html>
@@ -332,7 +371,7 @@ const Pagos = () => {
           </div>
           <div class="linea">
             <span class="label">Fecha:</span>
-            <span class="value">${pago.fecha_pago ? format(new Date(pago.fecha_pago), 'dd/MM/yyyy HH:mm') : 'N/A'}</span>
+            <span class="value">${pago.fecha_pago ? formatDate(pago.fecha_pago) : 'N/A'}</span>
           </div>
         </div>
 
@@ -483,7 +522,7 @@ const Pagos = () => {
                         {formatCurrency(pago.monto_recibido)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" display="block">
-                        {pago.fecha_pago ? format(new Date(pago.fecha_pago), 'dd/MM/yyyy HH:mm') : 'N/A'}
+                        {pago.fecha_pago ? formatDate(pago.fecha_pago) : 'N/A'}
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
                         <Chip label={pago.metodo_pago} size="small" variant="outlined" />
@@ -513,12 +552,16 @@ const Pagos = () => {
                       >
                         <Visibility fontSize="small" />
                       </IconButton>
-                      <IconButton size="small" color="info" onClick={() => handleEdit(pago)}>
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteClick(pago)}>
-                        <Delete fontSize="small" />
-                      </IconButton>
+                      {canEdit && (
+                        <IconButton size="small" color="info" onClick={() => handleEdit(pago)}>
+                          <Edit fontSize="small" />
+                        </IconButton>
+                      )}
+                      {canDelete && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteClick(pago)}>
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
                 </CardContent>
@@ -563,7 +606,7 @@ const Pagos = () => {
                     <TableCell>{getPrestamoInfo(pago.id_prestamo)}</TableCell>
                     <TableCell>
                       {pago.fecha_pago
-                        ? format(new Date(pago.fecha_pago), 'dd/MM/yyyy HH:mm')
+                        ? formatDate(pago.fecha_pago)
                         : 'N/A'}
                     </TableCell>
                     <TableCell>
@@ -599,24 +642,28 @@ const Pagos = () => {
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Editar">
-                        <IconButton
-                          size="small"
-                          color="info"
-                          onClick={() => handleEdit(pago)}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteClick(pago)}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      {canEdit && (
+                        <Tooltip title="Editar">
+                          <IconButton
+                            size="small"
+                            color="info"
+                            onClick={() => handleEdit(pago)}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {canDelete && (
+                        <Tooltip title="Eliminar">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteClick(pago)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -637,7 +684,7 @@ const Pagos = () => {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="overline" color="text.secondary">Fecha</Typography>
-                <Typography variant="body2">{detailPago.fecha_pago ? format(new Date(detailPago.fecha_pago), 'dd/MM/yyyy HH:mm') : 'N/A'}</Typography>
+                <Typography variant="body2">{detailPago.fecha_pago ? formatDate(detailPago.fecha_pago) : 'N/A'}</Typography>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="overline" color="text.secondary">Monto</Typography>
@@ -697,19 +744,17 @@ const Pagos = () => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
+                <DateInputField
+                  field={{
+                    name: 'fecha_pago',
+                    value: formik.values.fecha_pago,
+                  }}
+                  form={formik}
                   fullWidth
                   margin="dense"
                   id="fecha_pago"
-                  name="fecha_pago"
                   label="Fecha de Pago"
-                  type="date"
                   InputLabelProps={{ shrink: true }}
-                  value={formik.values.fecha_pago}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.touched.fecha_pago && Boolean(formik.errors.fecha_pago)}
-                  helperText={formik.touched.fecha_pago && formik.errors.fecha_pago}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>

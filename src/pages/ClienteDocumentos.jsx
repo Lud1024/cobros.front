@@ -28,6 +28,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  CircularProgress,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -49,20 +50,27 @@ import { EmptyState } from '../components/EmptyState';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { clienteDocumentosService, clientesService } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { formatDate } from '../utils/formatters';
 
 const tiposDocumento = [
   'DPI',
-  'Pasaporte',
-  'Recibo de Luz',
-  'Recibo de Agua',
-  'Contrato de Alquiler',
-  'Escritura',
-  'Otro',
+  'Contrato de Prestamo',
+  'Recibo de Pago',
+  'Comprobante de Ingresos',
+  'Comprobante de Domicilio',
+  'Garantia',
+  'PDF',
+  'EXCEL',
+  'OTRO',
 ];
+
+const APPS_SCRIPT_GET_PDF_URL =
+  'https://script.google.com/macros/s/AKfycbzuHkd29dqng8SUhn0GCez25171K4yVgcb7mb5W-vVztxOOuGFDtVFbs2HXZZSUgNcQ/exec';
 
 const validationSchema = Yup.object({
   id_cliente: Yup.number().required('El cliente es requerido'),
-  tipo_documento: Yup.string().required('El tipo de documento es requerido'),
+  tipo_documento: Yup.string().required('El tipo de archivo es requerido'),
   nombre_archivo: Yup.string().required('El nombre del archivo es requerido').max(255),
   ruta_storage: Yup.string().required('La ruta es requerida').max(500),
 });
@@ -80,8 +88,11 @@ function ClienteDocumentos() {
   const [detailDocumento, setDetailDocumento] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, documento: null });
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission('gestionar_documentos');
   const [searchTerm, setSearchTerm] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [viewingDoc, setViewingDoc] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -152,10 +163,11 @@ function ClienteDocumentos() {
         showSnackbar('Documento creado exitosamente', 'success');
       }
       handleCloseDialog();
-      loadDocumentos();
+      loadData();
     } catch (error) {
+      const apiMessage = error.response?.data?.message || error.response?.data?.error;
       showSnackbar(
-        error.response?.data?.message || 'Error al guardar documento',
+        apiMessage || 'Error al guardar documento',
         'error'
       );
     } finally {
@@ -180,13 +192,15 @@ function ClienteDocumentos() {
 
   const getTipoDocumentoColor = (tipo) => {
     const colores = {
-      'DPI': 'primary',
-      'Pasaporte': 'secondary',
-      'Recibo de Luz': 'warning',
-      'Recibo de Agua': 'info',
-      'Contrato de Alquiler': 'success',
-      'Escritura': 'error',
-      'Otro': 'default',
+      'DPI': 'info',
+      'Contrato de Prestamo': 'primary',
+      'Recibo de Pago': 'success',
+      'Comprobante de Ingresos': 'warning',
+      'Comprobante de Domicilio': 'warning',
+      'Garantia': 'secondary',
+      'PDF': 'primary',
+      'EXCEL': 'success',
+      'OTRO': 'default',
     };
     return colores[tipo] || 'default';
   };
@@ -197,6 +211,200 @@ function ClienteDocumentos() {
 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
+  };
+
+  const buildDocumentoUrl = (rutaStorage) => {
+    if (!rutaStorage) return '';
+
+    // Si ya es una URL completa, usarla directamente
+    if (/^https?:\/\//i.test(rutaStorage)) return rutaStorage;
+
+    // Caso típico (nuevo flujo): ruta_storage = fileId
+    return `${APPS_SCRIPT_GET_PDF_URL}?fileId=${encodeURIComponent(rutaStorage)}`;
+  };
+
+  const isAppsScriptUrl = (url) => {
+    if (!url) return false;
+    return url.startsWith(APPS_SCRIPT_GET_PDF_URL) || url.includes('script.google.com/macros/s/');
+  };
+
+  const openPdfFromAppsScript = async (rutaStorage) => {
+    const url = buildDocumentoUrl(rutaStorage);
+
+    // Para URLs externas que no son Apps Script, abrir normal.
+    if (!isAppsScriptUrl(url)) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // Abrir popup inmediatamente para evitar bloqueo por async.
+    // Importante: NO usar `noreferrer` aquí, porque puede dar un origen opaco y el `blob:` no carga (queda en blanco).
+    const popup = window.open('', '_blank');
+    if (!popup) {
+      throw new Error('Permite ventanas emergentes para ver el documento');
+    }
+
+    try {
+      popup.document.title = 'Cargando documento…';
+      popup.document.body.innerHTML = `
+        <style>
+          :root { color-scheme: light dark; }
+          body {
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            background: Canvas;
+            color: CanvasText;
+          }
+          .wrap {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+          }
+          .card {
+            width: min(520px, 100%);
+            border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+            border-radius: 12px;
+            padding: 18px 18px 16px;
+            background: color-mix(in srgb, Canvas 92%, CanvasText 8%);
+          }
+          .title {
+            font-size: 16px;
+            font-weight: 650;
+            margin: 0 0 8px;
+          }
+          .sub {
+            font-size: 13px;
+            opacity: .8;
+            margin: 0 0 14px;
+            line-height: 1.35;
+          }
+          progress {
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            overflow: hidden;
+          }
+          progress::-webkit-progress-bar {
+            background: color-mix(in srgb, CanvasText 10%, transparent);
+            border-radius: 999px;
+          }
+          progress::-webkit-progress-value {
+            border-radius: 999px;
+          }
+          .meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 12px;
+            font-size: 12px;
+            opacity: .7;
+          }
+          .dots::after {
+            content: '';
+            display: inline-block;
+            width: 14px;
+            text-align: left;
+            animation: dots 1.2s steps(4, end) infinite;
+          }
+          @keyframes dots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+            100% { content: ''; }
+          }
+        </style>
+          <div class="wrap">
+          <div class="card" role="status" aria-live="polite">
+            <p class="title">Abriendo documento</p>
+            <p class="sub">Estamos cargando el PDF. Esto puede tardar unos segundos<span class="dots"></span></p>
+            <progress></progress>
+            <div class="meta">
+              <span id="doc-stage">Preparando PDF</span>
+            </div>
+          </div>
+        </div>
+      `;
+    } catch {
+      // ignore
+    }
+
+    let json;
+    try {
+      const response = await fetch(url, { method: 'GET' });
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        json = await response.json();
+      } else {
+        const text = await response.text();
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw new Error(text || `Error HTTP ${response.status}`);
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(json?.message || json?.error || `Error HTTP ${response.status}`);
+      }
+
+      if (json?.status !== 'success') {
+        throw new Error(json?.message || json?.error || 'No se pudo obtener el documento');
+      }
+
+      const mimeType = json?.mimeType || 'application/pdf';
+      const fileName = json?.fileName || 'documento.pdf';
+      let base64 = json?.fileData || '';
+      if (!base64) throw new Error('Respuesta inválida: falta fileData');
+
+      // Si viene con encabezado data:...;base64,
+      base64 = String(base64).replace(/^data:.*;base64,/, '');
+
+      const binaryString = atob(base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+
+      const blob = new Blob([bytes], { type: mimeType });
+      const objectUrl = URL.createObjectURL(blob);
+
+      const formatBytes = (bytesValue) => {
+        const n = Number(bytesValue);
+        if (!Number.isFinite(n) || n < 0) return '—';
+        if (n < 1024) return `${n} B`;
+        const units = ['KB', 'MB', 'GB'];
+        let value = n / 1024;
+        let unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.length - 1) {
+          value /= 1024;
+          unitIndex++;
+        }
+        return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+      };
+
+      try {
+        const sizeEl = popup.document.getElementById('doc-size');
+        if (sizeEl) sizeEl.textContent = formatBytes(blob.size);
+        const stageEl = popup.document.getElementById('doc-stage');
+        if (stageEl) stageEl.textContent = 'Abriendo PDF…';
+      } catch {
+        // ignore
+      }
+
+      try {
+        popup.document.title = fileName;
+      } catch {
+        // ignore
+      }
+      popup.location.href = objectUrl;
+
+      // Revoke después de un rato para liberar memoria
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (err) {
+      popup.close();
+      throw err;
+    }
   };
 
   return (
@@ -293,7 +501,7 @@ function ClienteDocumentos() {
                           variant="outlined"
                         />
                         <Chip 
-                          label={documento.fecha_subida ? new Date(documento.fecha_subida).toLocaleDateString('es-GT') : 'Sin fecha'} 
+                          label={documento.fecha_subida ? formatDate(documento.fecha_subida) : 'Sin fecha'} 
                           size="small" 
                           color="default"
                         />
@@ -307,12 +515,16 @@ function ClienteDocumentos() {
                       >
                         <Visibility fontSize="small" />
                       </IconButton>
-                      <IconButton size="small" color="info" onClick={() => handleOpenDialog(documento)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteClick(documento)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                      {canManage && (
+                        <IconButton size="small" color="info" onClick={() => handleOpenDialog(documento)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                      {canManage && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteClick(documento)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
                 </CardContent>
@@ -365,7 +577,7 @@ function ClienteDocumentos() {
                     <TableCell>{documento.nombre_archivo}</TableCell>
                     <TableCell>
                       {documento.fecha_subida
-                        ? new Date(documento.fecha_subida).toLocaleDateString('es-GT')
+                        ? formatDate(documento.fecha_subida)
                         : '-'}
                     </TableCell>
                     <TableCell align="center">
@@ -378,24 +590,28 @@ function ClienteDocumentos() {
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Editar">
-                        <IconButton
-                          size="small"
-                          color="info"
-                          onClick={() => handleOpenDialog(documento)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteClick(documento)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      {canManage && (
+                        <Tooltip title="Editar">
+                          <IconButton
+                            size="small"
+                            color="info"
+                            onClick={() => handleOpenDialog(documento)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {canManage && (
+                        <Tooltip title="Eliminar">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteClick(documento)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -432,15 +648,39 @@ function ClienteDocumentos() {
                 <Typography variant="overline" color="text.secondary">Fecha de Subida</Typography>
                 <Typography variant="body2">
                   {detailDocumento.fecha_subida 
-                    ? new Date(detailDocumento.fecha_subida).toLocaleString('es-GT') 
+                    ? formatDate(detailDocumento.fecha_subida, true) 
                     : 'Sin fecha'}
                 </Typography>
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="overline" color="text.secondary">Ruta de Almacenamiento</Typography>
-                <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-                  {detailDocumento.ruta_storage}
-                </Typography>
+                <Typography variant="overline" color="text.secondary">Documento</Typography>
+                {detailDocumento.ruta_storage ? (
+                  <Button
+                    variant="outlined"
+                    startIcon={<Description />}
+                    disabled={viewingDoc}
+                    onClick={async () => {
+                      try {
+                        setViewingDoc(true);
+                        await openPdfFromAppsScript(detailDocumento.ruta_storage);
+                      } catch (err) {
+                        showSnackbar(err?.message || 'Error al abrir documento', 'error');
+                      } finally {
+                        setViewingDoc(false);
+                      }
+                    }}
+                  >
+                    {viewingDoc ? (
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                        Abriendo… <CircularProgress size={16} />
+                      </Box>
+                    ) : (
+                      'Ver documento'
+                    )}
+                  </Button>
+                ) : (
+                  <Alert severity="info">Este registro no tiene archivo asociado.</Alert>
+                )}
               </Grid>
             </Grid>
           ) : (
@@ -495,7 +735,7 @@ function ClienteDocumentos() {
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Tipo de Documento"
+                        label="Tipo de Archivo"
                         required
                         error={touched.tipo_documento && Boolean(errors.tipo_documento)}
                         helperText={touched.tipo_documento && errors.tipo_documento}

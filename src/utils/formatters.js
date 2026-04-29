@@ -24,10 +24,102 @@ export const formatCurrency = (amount) => {
  * @param {boolean} includeTime - Si se debe incluir la hora
  * @returns {string} - Fecha formateada (ej: 29/10/2025 o 29/10/2025 15:30)
  */
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const UTC_MIDNIGHT_RE = /^(\d{4})-(\d{2})-(\d{2})T00:00:00/;
+
+const getDateInputParts = (value) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return {
+      year: Number(isoMatch[1]),
+      month: Number(isoMatch[2]),
+      day: Number(isoMatch[3]),
+    };
+  }
+
+  const localMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (localMatch) {
+    return {
+      year: Number(localMatch[3]),
+      month: Number(localMatch[2]),
+      day: Number(localMatch[1]),
+    };
+  }
+
+  return null;
+};
+
+const isValidDateParts = (parts) => {
+  if (!parts) return false;
+  const { year, month, day } = parts;
+  if (year < 1900 || year > 2100) return false;
+  const parsed = new Date(year, month - 1, day, 12);
+  return parsed.getFullYear() === year &&
+    parsed.getMonth() === month - 1 &&
+    parsed.getDate() === day;
+};
+
+export const normalizeDateInput = (value) => {
+  const parts = getDateInputParts(value);
+  if (!isValidDateParts(parts)) return '';
+
+  const year = String(parts.year).padStart(4, '0');
+  const month = String(parts.month).padStart(2, '0');
+  const day = String(parts.day).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const parseDateLocal = (date, includeTime = false) => {
+  if (!date) return null;
+
+  if (date instanceof Date) {
+    if (!includeTime && date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0) {
+      return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12);
+    }
+    return date;
+  }
+
+  if (typeof date === 'string') {
+    const normalizedInput = normalizeDateInput(date);
+    if (normalizedInput) {
+      const [, year, month, day] = normalizedInput.match(DATE_ONLY_RE);
+      return new Date(Number(year), Number(month) - 1, Number(day), 12);
+    }
+
+    const utcMidnightMatch = date.match(UTC_MIDNIGHT_RE);
+    if (utcMidnightMatch && !includeTime) {
+      const [, year, month, day] = utcMidnightMatch;
+      return new Date(Number(year), Number(month) - 1, Number(day), 12);
+    }
+
+    const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match && !includeTime) {
+      const [, year, month, day] = match;
+      return new Date(Number(year), Number(month) - 1, Number(day), 12);
+    }
+  }
+
+  return new Date(date);
+};
+
+export const isValidDateInput = (value) => {
+  return Boolean(normalizeDateInput(value));
+};
+
+export const todayDateInput = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const formatDate = (date, includeTime = false) => {
   if (!date) return '';
   
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const dateObj = parseDateLocal(date, includeTime);
   
   if (isNaN(dateObj.getTime())) return '';
   
@@ -55,7 +147,7 @@ export const formatDate = (date, includeTime = false) => {
 export const formatDateForInput = (date) => {
   if (!date) return '';
   
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const dateObj = parseDateLocal(date);
   
   if (isNaN(dateObj.getTime())) return '';
   

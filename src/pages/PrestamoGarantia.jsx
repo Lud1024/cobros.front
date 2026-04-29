@@ -420,7 +420,7 @@ function PrestamoGarantia() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  {selectedGarantia ? 'Actualizar' : 'Crear'}
+                  {isSubmitting ? 'Guardando...' : selectedGarantia ? 'Actualizar' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>

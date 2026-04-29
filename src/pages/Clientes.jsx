@@ -46,6 +46,7 @@ import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
 import { clientesService, carterasService } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const validationSchema = Yup.object({
   nombre: Yup.string()
@@ -83,6 +84,9 @@ const Clientes = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('editar_clientes');
+  const canDelete = hasPermission('eliminar_clientes');
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailCliente, setDetailCliente] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, cliente: null });
@@ -318,12 +322,16 @@ const Clientes = () => {
                       >
                         <Visibility fontSize="small" />
                       </IconButton>
-                      <IconButton size="small" color="info" onClick={() => handleEdit(cliente)}>
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteClick(cliente)}>
-                        <Delete fontSize="small" />
-                      </IconButton>
+                      {canEdit && (
+                        <IconButton size="small" color="info" onClick={() => handleEdit(cliente)}>
+                          <Edit fontSize="small" />
+                        </IconButton>
+                      )}
+                      {canDelete && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteClick(cliente)}>
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
                 </CardContent>
@@ -408,16 +416,20 @@ const Clientes = () => {
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Editar">
-                        <IconButton color="info" size="small" onClick={() => handleEdit(cliente)}>
-                          <Edit fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar">
-                        <IconButton color="error" size="small" onClick={() => handleDeleteClick(cliente)}>
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      {canEdit && (
+                        <Tooltip title="Editar">
+                          <IconButton color="info" size="small" onClick={() => handleEdit(cliente)}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {canDelete && (
+                        <Tooltip title="Eliminar">
+                          <IconButton color="error" size="small" onClick={() => handleDeleteClick(cliente)}>
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

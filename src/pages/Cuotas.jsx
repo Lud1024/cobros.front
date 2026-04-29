@@ -33,8 +33,8 @@ import {
   Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { cuotasService, prestamosService, clientesService, getErrorMessage } from '../services/api';
-import { format } from 'date-fns';
+import { cuotasService, prestamosService, clientesService } from '../services/api';
+import { formatDate } from '../utils/formatters';
 import PageHeader from '../components/PageHeader';
 
 const Cuotas = () => {
@@ -131,6 +131,7 @@ const Cuotas = () => {
   };
 
   const calcularProgreso = (montoPagado, montoTotal) => {
+    if (!montoTotal || montoTotal <= 0) return 0;
     const porcentaje = (montoPagado / montoTotal) * 100;
     return Math.min(porcentaje, 100);
   };
@@ -219,7 +220,7 @@ const Cuotas = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <CalendarIcon fontSize="small" color="action" />
                       <Typography variant="body2" color="text.secondary" noWrap>
-                        {cuota.fecha_vencimiento ? format(new Date(cuota.fecha_vencimiento), 'dd/MM/yyyy') : 'N/A'}
+                        {cuota.fecha_vencimiento ? formatDate(cuota.fecha_vencimiento) : 'N/A'}
                       </Typography>
                     </Box>
 
@@ -241,6 +242,19 @@ const Cuotas = () => {
                         label={formatCurrency(cuota.monto_cuota)} 
                         size="small" 
                         color="primary"
+                        variant="outlined"
+                      />
+                      {Number(cuota.mora_acumulada || 0) > 0 && (
+                        <Chip
+                          label={`Mora ${formatCurrency(cuota.mora_acumulada)}`}
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                        />
+                      )}
+                      <Chip
+                        label={`Saldo ${formatCurrency(cuota.saldo_pendiente || 0)}`}
+                        size="small"
                         variant="outlined"
                       />
                       <Chip 
@@ -277,7 +291,9 @@ const Cuotas = () => {
                 <TableCell sx={{ color: 'white', fontWeight: 600 }}>Cliente</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 600 }}>Fecha Vencimiento</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 600 }}>Monto</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600 }}>Mora</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 600 }}>Pagado</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600 }}>Saldo</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 600 }}>Progreso</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 600 }}>Estado</TableCell>
               </TableRow>
@@ -285,13 +301,13 @@ const Cuotas = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={10} align="center">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : filteredCuotas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={10} align="center">
                     No se encontraron cuotas
                   </TableCell>
                 </TableRow>
@@ -307,7 +323,7 @@ const Cuotas = () => {
                     <TableCell>{getClienteName(cuota.id_prestamo)}</TableCell>
                     <TableCell>
                       {cuota.fecha_vencimiento
-                        ? format(new Date(cuota.fecha_vencimiento), 'dd/MM/yyyy')
+                        ? formatDate(cuota.fecha_vencimiento)
                         : 'N/A'}
                     </TableCell>
                     <TableCell>
@@ -316,8 +332,18 @@ const Cuotas = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>
+                      <Typography variant="body2" color={cuota.mora_acumulada > 0 ? 'error.main' : 'text.secondary'}>
+                        {formatCurrency(cuota.mora_acumulada || 0)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
                       <Typography variant="body2" color="success.main">
                         {formatCurrency(cuota.monto_pagado || 0)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium">
+                        {formatCurrency(cuota.saldo_pendiente || 0)}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -364,15 +390,23 @@ const Cuotas = () => {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2">Fecha Vencimiento</Typography>
-                <Typography variant="body2">{detailCuota.fecha_vencimiento ? format(new Date(detailCuota.fecha_vencimiento), 'dd/MM/yyyy') : 'N/A'}</Typography>
+                <Typography variant="body2">{detailCuota.fecha_vencimiento ? formatDate(detailCuota.fecha_vencimiento) : 'N/A'}</Typography>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2">Monto</Typography>
                 <Typography variant="body2">{formatCurrency(detailCuota.monto_cuota)}</Typography>
               </Grid>
               <Grid item xs={6}>
+                <Typography variant="subtitle2">Mora acumulada</Typography>
+                <Typography variant="body2">{formatCurrency(detailCuota.mora_acumulada || 0)}</Typography>
+              </Grid>
+              <Grid item xs={6}>
                 <Typography variant="subtitle2">Pagado</Typography>
                 <Typography variant="body2">{formatCurrency(detailCuota.monto_pagado || 0)}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2">Saldo pendiente</Typography>
+                <Typography variant="body2">{formatCurrency(detailCuota.saldo_pendiente || 0)}</Typography>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2">Estado</Typography>

@@ -39,11 +39,14 @@ import {
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { moraEventosService, cuotasService } from '../services/api';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDate, formatDateForInput, isValidDateInput } from '../utils/formatters';
+import DateInputField from '../components/DateInputField';
 
 const validationSchema = Yup.object({
   id_cuota: Yup.number().required('La cuota es requerida'),
-  fecha_calculo: Yup.date().required('La fecha es requerida'),
+  fecha_calculo: Yup.string()
+    .required('La fecha es requerida')
+    .test('fecha-valida', 'Fecha invalida', isValidDateInput),
   dias_atraso: Yup.number().required('Los días son requeridos').min(0),
   interes_mora: Yup.number().required('El interés es requerido').min(0),
 });
@@ -188,7 +191,7 @@ function MoraEventos() {
                       {cuota ? `Cuota #${cuota.numero_cuota}` : `Cuota #${evento.id_cuota}`}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      ID: {evento.id_mora} | {new Date(evento.fecha_calculo).toLocaleDateString('es-GT')}
+                      ID: {evento.id_mora} | {formatDate(evento.fecha_calculo)}
                     </Typography>
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -281,7 +284,7 @@ function MoraEventos() {
                         {cuota ? `Cuota #${cuota.numero_cuota}` : evento.id_cuota}
                       </Typography>
                     </TableCell>
-                    <TableCell>{new Date(evento.fecha_calculo).toLocaleDateString('es-GT')}</TableCell>
+                    <TableCell>{formatDate(evento.fecha_calculo)}</TableCell>
                     <TableCell>{evento.dias_atraso}</TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
@@ -330,7 +333,7 @@ function MoraEventos() {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2">Fecha Cálculo</Typography>
-                <Typography variant="body2">{new Date(detailEvento.fecha_calculo).toLocaleDateString('es-GT')}</Typography>
+                <Typography variant="body2">{formatDate(detailEvento.fecha_calculo)}</Typography>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2">Días Atraso</Typography>
@@ -355,7 +358,7 @@ function MoraEventos() {
         <Formik
           initialValues={{
             id_cuota: selectedEvento?.id_cuota || '',
-            fecha_calculo: selectedEvento?.fecha_calculo?.split('T')[0] || '',
+            fecha_calculo: formatDateForInput(selectedEvento?.fecha_calculo),
             dias_atraso: selectedEvento?.dias_atraso || '',
             interes_mora: selectedEvento?.interes_mora || '',
           }}
@@ -383,16 +386,14 @@ function MoraEventos() {
                   />
 
                   <Field name="fecha_calculo">
-                    {({ field }) => (
-                      <TextField
-                        {...field}
+                    {({ field, form }) => (
+                      <DateInputField
+                        field={field}
+                        form={form}
                         label="Fecha de Cálculo"
-                        type="date"
                         fullWidth
                         required
                         InputLabelProps={{ shrink: true }}
-                        error={touched.fecha_calculo && Boolean(errors.fecha_calculo)}
-                        helperText={touched.fecha_calculo && errors.fecha_calculo}
                       />
                     )}
                   </Field>
@@ -431,7 +432,7 @@ function MoraEventos() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  {selectedEvento ? 'Actualizar' : 'Crear'}
+                  {isSubmitting ? 'Guardando...' : selectedEvento ? 'Actualizar' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>

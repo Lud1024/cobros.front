@@ -163,6 +163,39 @@ export const clientesService = {
   },
 };
 
+// ============= CLIENTE REFERENCIAS SERVICES =============
+export const clienteReferenciasService = {
+  getAll: async () => {
+    const response = await api.get('/cliente-referencias');
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await api.get(`/cliente-referencias/${id}`);
+    return response.data;
+  },
+
+  getByCliente: async (idCliente) => {
+    const response = await api.get(`/cliente-referencias/cliente/${idCliente}`);
+    return response.data;
+  },
+
+  create: async (referenciaData) => {
+    const response = await api.post('/cliente-referencias', referenciaData);
+    return response.data;
+  },
+
+  update: async (id, referenciaData) => {
+    const response = await api.patch(`/cliente-referencias/${id}`, referenciaData);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await api.delete(`/cliente-referencias/${id}`);
+    return response.data;
+  },
+};
+
 // ============= PRESTAMOS SERVICES =============
 export const prestamosService = {
   getAll: async () => {
@@ -602,6 +635,16 @@ export const pagoAplicacionesService = {
 
   getById: async (id) => {
     const response = await api.get(`/pago-aplicaciones/${id}`);
+    return response.data;
+  },
+
+  getByPago: async (idPago) => {
+    const response = await api.get(`/pago-aplicaciones/pago/${idPago}`);
+    return response.data;
+  },
+
+  getByCuota: async (idCuota) => {
+    const response = await api.get(`/pago-aplicaciones/cuota/${idCuota}`);
     return response.data;
   },
 

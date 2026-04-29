@@ -36,12 +36,14 @@ import {
   Search as SearchIcon,
   Person as PersonIcon,
   Visibility as VisibilityIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { visitasCobroService, clientesService, prestamosService } from '../services/api';
+import { visitasCobroService, clientesService, prestamosService, cuotasService, politicasMoraService } from '../services/api';
 import ResponsiveButton from '../components/ResponsiveButton';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDate } from '../utils/formatters';
+import { createPrintWindow, closePrintWindow, printNoEncontradoTicket } from '../utils/printTickets';
 
 // Valores según ENUM de la BD: 'COBRO','NO_ENCONTRADO','PROMESA','NEGOCIACION','OTRO'
 const resultadosVisita = [
@@ -62,7 +64,10 @@ const validationSchema = Yup.object({
   id_prestamo: Yup.number().required('El préstamo es requerido'),
   resultado: Yup.string().required('El resultado es requerido'),
   mensaje_dejado: Yup.string().nullable(),
-  total_cobros_info: Yup.number().nullable(),
+  total_cobros_info: Yup.number()
+    .typeError('Debe ser un monto numerico')
+    .min(0, 'No puede ser negativo')
+    .nullable(),
 });
 
 function VisitasCobro() {
@@ -72,6 +77,8 @@ function VisitasCobro() {
   const [filteredVisitas, setFilteredVisitas] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [prestamos, setPrestamos] = useState([]);
+  const [cuotas, setCuotas] = useState([]);
+  const [politicasMora, setPoliticasMora] = useState([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openDialog, setOpenDialog] = useState(false);
@@ -85,6 +92,8 @@ function VisitasCobro() {
     loadVisitas();
     loadClientes();
     loadPrestamos();
+    loadCuotas();
+    loadPoliticasMora();
   }, []);
 
   useEffect(() => {
@@ -130,9 +139,57 @@ function VisitasCobro() {
     }
   };
 
+  const loadCuotas = async () => {
+    try {
+      const data = await cuotasService.getAll();
+      setCuotas(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const loadPoliticasMora = async () => {
+    try {
+      const data = await politicasMoraService.getAll();
+      setPoliticasMora(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const getClienteNombre = (idCliente) => {
     const cliente = clientes.find((c) => c.id_cliente === idCliente);
     return cliente ? `${cliente.nombre} ${cliente.apellido}` : '-';
+  };
+
+  const getPoliticaVigente = (cliente) => {
+    if (!cliente?.id_cartera) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    return politicasMora
+      .filter((politica) => {
+        const vigenteDesde = politica.vigente_desde ? String(politica.vigente_desde).slice(0, 10) : '';
+        const vigenteHasta = politica.vigente_hasta ? String(politica.vigente_hasta).slice(0, 10) : '';
+        return String(politica.id_cartera) === String(cliente.id_cartera) &&
+          (!vigenteDesde || vigenteDesde <= today) &&
+          (!vigenteHasta || vigenteHasta >= today);
+      })
+      .sort((a, b) => String(b.vigente_desde || '').localeCompare(String(a.vigente_desde || '')))[0] || null;
+  };
+
+  const handlePrintNoEncontrado = (visita, printWindow = null) => {
+    const prestamo = prestamos.find((p) => p.id_prestamo === visita.id_prestamo);
+    const cliente = clientes.find((c) => c.id_cliente === visita.id_cliente);
+    const printed = printNoEncontradoTicket({
+      visita,
+      prestamo,
+      cliente,
+      cuotas,
+      politica: getPoliticaVigente(cliente),
+    }, printWindow);
+
+    if (!printed) {
+      showSnackbar('No se pudo abrir la ventana de impresion', 'error');
+    }
   };
 
   const handleOpenDialog = (visita = null) => {
@@ -146,17 +203,43 @@ function VisitasCobro() {
   };
 
   const handleSubmit = async (values, { setSubmitting }) => {
+    let printWindow = null;
     try {
+      const payload = {
+        ...values,
+        total_cobros_info: values.total_cobros_info === '' || values.total_cobros_info == null
+          ? 0
+          : Number(values.total_cobros_info)
+      };
+      const shouldPrintNoEncontrado = payload.resultado === 'NO_ENCONTRADO';
+
+      if (shouldPrintNoEncontrado) {
+        printWindow = createPrintWindow();
+      }
+
+      let result = null;
       if (selectedVisita) {
-        await visitasCobroService.update(selectedVisita.id_visita, values);
+        result = await visitasCobroService.update(selectedVisita.id_visita, payload);
         showSnackbar('Visita actualizada exitosamente', 'success');
       } else {
-        await visitasCobroService.create(values);
+        result = await visitasCobroService.create(payload);
         showSnackbar('Visita creada exitosamente', 'success');
       }
+
+      if (shouldPrintNoEncontrado) {
+        handlePrintNoEncontrado({
+          ...selectedVisita,
+          ...payload,
+          id_visita: selectedVisita?.id_visita || result?.id,
+          fecha_visita: selectedVisita?.fecha_visita || new Date().toISOString(),
+        }, printWindow);
+      }
+
       handleCloseDialog();
       loadVisitas();
+      loadCuotas();
     } catch (error) {
+      closePrintWindow(printWindow);
       showSnackbar(error.response?.data?.message || 'Error al guardar visita', 'error');
     } finally {
       setSubmitting(false);
@@ -227,7 +310,7 @@ function VisitasCobro() {
                       {getClienteNombre(vis.id_cliente)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      ID: {vis.id_visita} | {vis.fecha_visita ? new Date(vis.fecha_visita).toLocaleDateString('es-GT') : '-'}
+                      ID: {vis.id_visita} | {vis.fecha_visita ? formatDate(vis.fecha_visita) : '-'}
                     </Typography>
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -254,6 +337,16 @@ function VisitasCobro() {
                   </Box>
 
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    {vis.resultado === 'NO_ENCONTRADO' && (
+                      <IconButton
+                        size="small"
+                        color="warning"
+                        onClick={() => handlePrintNoEncontrado(vis)}
+                        title="Imprimir aviso"
+                      >
+                        <PrintIcon fontSize="small" />
+                      </IconButton>
+                    )}
                     <IconButton
                       size="small"
                       color="info"
@@ -323,9 +416,14 @@ function VisitasCobro() {
                     <TableCell>{prestamo ? `Préstamo #${prestamo.id_prestamo} - ${formatCurrency(prestamo.monto)}` : vis.id_prestamo}</TableCell>
                     <TableCell>{getResultadoLabel(vis.resultado)}</TableCell>
                     <TableCell>
-                      {vis.fecha_visita ? new Date(vis.fecha_visita).toLocaleDateString('es-GT') : '-'}
+                      {vis.fecha_visita ? formatDate(vis.fecha_visita) : '-'}
                     </TableCell>
                     <TableCell align="center">
+                      {vis.resultado === 'NO_ENCONTRADO' && (
+                        <IconButton color="warning" size="small" onClick={() => handlePrintNoEncontrado(vis)}>
+                          <PrintIcon />
+                        </IconButton>
+                      )}
                       <IconButton color="info" size="small" onClick={() => { setDetailVisita(vis); setDetailOpen(true); }}>
                         <VisibilityIcon />
                       </IconButton>
@@ -371,7 +469,7 @@ function VisitasCobro() {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2">Fecha</Typography>
-                <Typography variant="body2">{detailVisita.fecha_visita ? new Date(detailVisita.fecha_visita).toLocaleDateString('es-GT') : '-'}</Typography>
+                <Typography variant="body2">{detailVisita.fecha_visita ? formatDate(detailVisita.fecha_visita) : '-'}</Typography>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2">Resultado</Typography>
@@ -382,8 +480,8 @@ function VisitasCobro() {
                 <Typography variant="body2">{detailVisita.mensaje_dejado || '-'}</Typography>
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="subtitle2">Info Total Cobros</Typography>
-                <Typography variant="body2">{detailVisita.total_cobros_info || '-'}</Typography>
+                <Typography variant="subtitle2">Monto cobrado</Typography>
+                <Typography variant="body2">{formatCurrency(detailVisita.total_cobros_info || 0)}</Typography>
               </Grid>
             </Grid>
           ) : (
@@ -391,6 +489,11 @@ function VisitasCobro() {
           )}
         </DialogContent>
         <DialogActions>
+          {detailVisita?.resultado === 'NO_ENCONTRADO' && (
+            <Button startIcon={<PrintIcon />} onClick={() => handlePrintNoEncontrado(detailVisita)}>
+              Imprimir aviso
+            </Button>
+          )}
           <Button onClick={() => { setDetailOpen(false); setDetailVisita(null); }}>Cerrar</Button>
         </DialogActions>
       </Dialog>
@@ -482,10 +585,12 @@ function VisitasCobro() {
                     {({ field }) => (
                       <TextField
                         {...field}
-                        label="Información Total de Cobros"
+                        label="Monto cobrado"
                         fullWidth
-                        multiline
-                        rows={2}
+                        type="number"
+                        inputProps={{ min: 0, step: '0.01' }}
+                        InputProps={{ startAdornment: <InputAdornment position="start">Q</InputAdornment> }}
+                        placeholder="0.00"
                         error={touched.total_cobros_info && Boolean(errors.total_cobros_info)}
                         helperText={touched.total_cobros_info && errors.total_cobros_info}
                       />
@@ -496,7 +601,7 @@ function VisitasCobro() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  {selectedVisita ? 'Actualizar' : 'Crear'}
+                  {isSubmitting ? 'Guardando...' : selectedVisita ? 'Actualizar' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>

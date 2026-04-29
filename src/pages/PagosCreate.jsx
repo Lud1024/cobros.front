@@ -15,11 +15,15 @@ import {
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { pagosService, prestamosService, clientesService } from '../services/api';
+import { formatCurrency, isValidDateInput, todayDateInput } from '../utils/formatters';
 import { useSnackbar } from 'notistack';
+import DateInputField from '../components/DateInputField';
 
 const validationSchema = Yup.object({
   id_prestamo: Yup.number().required('El préstamo es requerido'),
-  fecha_pago: Yup.date().required('La fecha de pago es requerida'),
+  fecha_pago: Yup.string()
+    .required('La fecha de pago es requerida')
+    .test('fecha-valida', 'Fecha invalida', isValidDateInput),
   monto: Yup.number().required('El monto es requerido').positive('Debe ser positivo'),
   metodo_pago: Yup.string().required('El método de pago es requerido'),
 });
@@ -45,8 +49,14 @@ const PagosCreate = () => {
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
-      await pagosService.create(values);
-      enqueueSnackbar('Pago registrado exitosamente', { variant: 'success' });
+      const result = await pagosService.create(values);
+      const saldoNoAplicado = Number(result.saldo_no_aplicado || 0);
+      enqueueSnackbar(
+        saldoNoAplicado > 0
+          ? `Pago registrado. Quedo ${formatCurrency(saldoNoAplicado)} sin aplicar.`
+          : 'Pago registrado exitosamente',
+        { variant: saldoNoAplicado > 0 ? 'warning' : 'success' }
+      );
       navigate('/app/pagos');
     } catch (err) {
       enqueueSnackbar(err.response?.data?.error || 'Error al registrar pago', { variant: 'error' });
@@ -63,7 +73,7 @@ const PagosCreate = () => {
           <Formik
             initialValues={{
               id_prestamo: '',
-              fecha_pago: new Date().toISOString().split('T')[0],
+              fecha_pago: todayDateInput(),
               monto: '',
               metodo_pago: 'Efectivo',
               observaciones: '',
@@ -99,16 +109,14 @@ const PagosCreate = () => {
 
                   <Grid item xs={12} sm={6}>
                     <Field name="fecha_pago">
-                      {({ field }) => (
-                        <TextField
-                          {...field}
+                      {({ field, form }) => (
+                        <DateInputField
+                          field={field}
+                          form={form}
                           label="Fecha de Pago"
-                          type="date"
                           InputLabelProps={{ shrink: true }}
                           fullWidth
                           required
-                          error={touched.fecha_pago && Boolean(errors.fecha_pago)}
-                          helperText={touched.fecha_pago && errors.fecha_pago}
                         />
                       )}
                     </Field>
@@ -156,7 +164,9 @@ const PagosCreate = () => {
 
                   <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                     <Button variant="outlined" onClick={() => navigate('/app/pagos')}>Cancelar</Button>
-                    <Button type="submit" variant="contained" disabled={isSubmitting}>Registrar</Button>
+                    <Button type="submit" variant="contained" disabled={isSubmitting}>
+                      {isSubmitting ? 'Guardando...' : 'Registrar'}
+                    </Button>
                   </Grid>
                 </Grid>
               </Form>

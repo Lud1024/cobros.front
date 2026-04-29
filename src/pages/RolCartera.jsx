@@ -405,7 +405,7 @@ function RolCartera() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  Crear
+                  {isSubmitting ? 'Guardando...' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>

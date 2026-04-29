@@ -390,7 +390,7 @@ function MetodosGarantia() {
               <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancelar</Button>
                 <Button type="submit" variant="contained" disabled={isSubmitting}>
-                  {selectedMetodo ? 'Actualizar' : 'Crear'}
+                  {isSubmitting ? 'Guardando...' : selectedMetodo ? 'Actualizar' : 'Crear'}
                 </Button>
               </DialogActions>
             </Form>
